@@ -1,0 +1,241 @@
+---
+export interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'FreeMCP.in — Open Source MCP Server Registry',
+  description = 'The community-curated registry of 100% free and open-source Model Context Protocol servers for autonomous AI agents, LangGraph, LangChain, and DevSecOps workflows.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#020617" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://freemcp.in" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+
+    <title>{title}</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <style>
+      :root {
+        --color-bg: #020617;
+        --color-surface: #0f172a;
+        --color-surface-2: #1e293b;
+        --color-border: #1e293b;
+        --color-border-subtle: #0f172a;
+        --color-cyan: #06b6d4;
+        --color-blue: #3b82f6;
+        --color-emerald: #10b981;
+        --color-purple: #8b5cf6;
+        --color-text: #f1f5f9;
+        --color-muted: #64748b;
+        --color-muted-2: #94a3b8;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        background-color: var(--color-bg);
+        color: var(--color-text);
+        font-family: 'Inter', system-ui, sans-serif;
+      }
+
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--color-bg);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #334155;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+      }
+
+      /* Noise texture overlay */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+        pointer-events: none;
+        z-index: 1000;
+        opacity: 0.4;
+      }
+
+      .glow-cyan {
+        text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+      }
+
+      .card-glow:hover {
+        box-shadow:
+          0 0 0 1px rgba(6, 182, 212, 0.3),
+          0 8px 32px rgba(6, 182, 212, 0.08);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #06b6d4, #3b82f6);
+        transition: all 0.2s ease;
+      }
+
+      .btn-primary:hover {
+        filter: brightness(1.15);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+      }
+
+      @keyframes fadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(24px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .animate-fade-in-up {
+        animation: fadeInUp 0.6s ease-out both;
+      }
+
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+
+      .shimmer-line {
+        background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen antialiased">
+    <!-- Navigation -->
+    <nav class="sticky top-0 z-50 border-b border-slate-800/60 bg-slate-950/80 backdrop-blur-xl">
+      <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+        <!-- Logo -->
+        <a href="/" class="flex items-center gap-2.5 group">
+          <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition-all group-hover:scale-105">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div>
+            <span class="text-base font-bold tracking-tight text-white">FreeMCP<span class="text-cyan-400">.in</span></span>
+          </div>
+        </a>
+
+        <!-- Nav Links -->
+        <div class="hidden items-center gap-6 sm:flex">
+          <a href="#registry" class="text-sm text-slate-400 transition-colors hover:text-cyan-400">Registry</a>
+          <a href="#about" class="text-sm text-slate-400 transition-colors hover:text-cyan-400">About</a>
+          <a
+            href="https://github.com/freemcpin/registry/issues/new?template=submit-server.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-primary inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold text-white"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            Submit a Server
+          </a>
+        </div>
+
+        <!-- Mobile menu button -->
+        <a
+          href="https://github.com/freemcpin/registry/issues/new?template=submit-server.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="btn-primary inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white sm:hidden"
+        >
+          + Submit
+        </a>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+      <slot />
+    </main>
+
+    <!-- Footer -->
+    <footer id="about" class="mt-24 border-t border-slate-800/60">
+      <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <div class="flex items-center gap-2 mb-3">
+              <div class="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-cyan-500 to-blue-600 text-white">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+              <span class="font-bold text-white">FreeMCP.in</span>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed">
+              The community hub for 100% free and open-source Model Context Protocol servers. No paywalls, no enterprise tiers.
+            </p>
+          </div>
+          <div>
+            <h4 class="mb-3 text-sm font-semibold text-slate-300">Resources</h4>
+            <ul class="space-y-2 text-sm text-slate-500">
+              <li><a href="https://modelcontextprotocol.io" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">MCP Specification</a></li>
+              <li><a href="https://github.com/modelcontextprotocol/servers" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">Official MCP Servers</a></li>
+              <li><a href="https://python.langchain.com/docs/integrations/tools/" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">LangChain Tools</a></li>
+              <li><a href="https://langchain-ai.github.io/langgraph/" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">LangGraph Docs</a></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="mb-3 text-sm font-semibold text-slate-300">Community</h4>
+            <ul class="space-y-2 text-sm text-slate-500">
+              <li><a href="https://github.com/freemcpin/registry" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">GitHub Repository</a></li>
+              <li><a href="https://github.com/freemcpin/registry/issues/new" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">Submit a Server</a></li>
+              <li><a href="https://github.com/freemcpin/registry/discussions" target="_blank" rel="noopener noreferrer" class="hover:text-cyan-400 transition-colors">Discussions</a></li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-8 border-t border-slate-800/60 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p class="text-xs text-slate-600">
+            © 2025 FreeMCP.in · Open source · MIT License · Hosted on Cloudflare Pages
+          </p>
+          <p class="text-xs text-slate-600">
+            Built for AI engineers &amp; DevSecOps teams
+          </p>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

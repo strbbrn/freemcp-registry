@@ -1,0 +1,134 @@
+[
+  {
+    "id": "sqlite-mcp",
+    "name": "SQLite MCP Server",
+    "description": "A Model Context Protocol server that provides read and write access to local SQLite databases. Enables LLMs to execute SQL queries, inspect schemas, and manage data through standardized tool calls.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sqlite",
+    "author": "modelcontextprotocol",
+    "category": "Database",
+    "stars": 18400,
+    "tags": ["sqlite", "database", "sql", "langchain", "langgraph"],
+    "featured": true
+  },
+  {
+    "id": "github-mcp",
+    "name": "GitHub MCP Server",
+    "description": "Interact with GitHub APIs through MCP. Manage repositories, issues, pull requests, code search, and file operations — giving autonomous agents full-cycle software development capabilities.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/github",
+    "author": "modelcontextprotocol",
+    "category": "Development",
+    "stars": 18400,
+    "tags": ["github", "git", "devops", "issues", "pull-requests"],
+    "featured": true
+  },
+  {
+    "id": "filesystem-mcp",
+    "name": "Filesystem MCP Server",
+    "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files — with sandboxed directory restrictions for safe autonomous operation.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+    "author": "modelcontextprotocol",
+    "category": "Utilities",
+    "stars": 18400,
+    "tags": ["filesystem", "files", "io", "sandbox", "crewai"],
+    "featured": false
+  },
+  {
+    "id": "brave-search-mcp",
+    "name": "Brave Search MCP",
+    "description": "Web and local search capabilities via Brave Search API. Enables agents to perform real-time web searches, news lookups, and local business queries with privacy-first, ad-free results.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/brave-search",
+    "author": "modelcontextprotocol",
+    "category": "Search",
+    "stars": 18400,
+    "tags": ["search", "web", "brave", "real-time", "langchain"],
+    "featured": false
+  },
+  {
+    "id": "shodan-mcp",
+    "name": "Shodan MCP Server",
+    "description": "Attack surface reconnaissance via Shodan's internet-wide scanning database. Query exposed services, CVEs, open ports, and organization-wide exposure reports — purpose-built for ASM agents.",
+    "githubUrl": "https://github.com/BurtTheCoder/mcp-shodan",
+    "author": "BurtTheCoder",
+    "category": "Security",
+    "stars": 312,
+    "tags": ["shodan", "asm", "recon", "cve", "devsecops", "langgraph"],
+    "featured": true
+  },
+  {
+    "id": "nmap-mcp",
+    "name": "Nmap MCP Server",
+    "description": "Network discovery and port scanning through MCP. Enables security agents to run configurable Nmap scans, parse results, and feed structured host/service data into automated vulnerability workflows.",
+    "githubUrl": "https://github.com/BurtTheCoder/mcp-nmap",
+    "author": "BurtTheCoder",
+    "category": "Security",
+    "stars": 187,
+    "tags": ["nmap", "network", "scanning", "pentest", "devsecops"],
+    "featured": false
+  },
+  {
+    "id": "postgres-mcp",
+    "name": "PostgreSQL MCP Server",
+    "description": "Read-only PostgreSQL access for LLM agents. Inspect schemas, run analytics queries, and retrieve relational data with safe, connection-pooled access to production or staging databases.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/postgres",
+    "author": "modelcontextprotocol",
+    "category": "Database",
+    "stars": 18400,
+    "tags": ["postgresql", "database", "sql", "analytics", "langchain"],
+    "featured": false
+  },
+  {
+    "id": "docker-mcp",
+    "name": "Docker MCP Server",
+    "description": "Manage Docker containers, images, volumes, and networks via MCP. Gives DevSecOps agents the ability to spin up isolated sandboxes, run workloads, and manage container lifecycles programmatically.",
+    "githubUrl": "https://github.com/ckreiling/mcp-server-docker",
+    "author": "ckreiling",
+    "category": "DevOps",
+    "stars": 423,
+    "tags": ["docker", "containers", "devops", "sandbox", "crewai"],
+    "featured": false
+  },
+  {
+    "id": "semgrep-mcp",
+    "name": "Semgrep MCP Server",
+    "description": "SAST (Static Application Security Testing) via Semgrep rules directly in MCP. Agents can scan codebases for security anti-patterns, secrets, and vulnerabilities as part of automated code review pipelines.",
+    "githubUrl": "https://github.com/semgrep/mcp",
+    "author": "semgrep",
+    "category": "Security",
+    "stars": 156,
+    "tags": ["sast", "semgrep", "code-scanning", "devsecops", "appsec"],
+    "featured": false
+  },
+  {
+    "id": "slack-mcp",
+    "name": "Slack MCP Server",
+    "description": "Send messages, read channels, manage workspaces, and search Slack history. Lets orchestration agents deliver alerts, status updates, and incident notifications into team communication channels.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/slack",
+    "author": "modelcontextprotocol",
+    "category": "Communication",
+    "stars": 18400,
+    "tags": ["slack", "notifications", "alerts", "incident-response", "langgraph"],
+    "featured": false
+  },
+  {
+    "id": "puppeteer-mcp",
+    "name": "Puppeteer MCP Server",
+    "description": "Headless browser automation through MCP. Capture screenshots, fill forms, scrape dynamic pages, and automate web interactions — essential for agents that need to test or monitor web applications.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/puppeteer",
+    "author": "modelcontextprotocol",
+    "category": "Utilities",
+    "stars": 18400,
+    "tags": ["puppeteer", "browser", "scraping", "automation", "testing"],
+    "featured": false
+  },
+  {
+    "id": "aws-kb-mcp",
+    "name": "AWS Knowledge Base MCP",
+    "description": "Retrieval-Augmented Generation (RAG) against Amazon Bedrock Knowledge Bases. Provides agents with semantic search over enterprise document stores, FAQs, and internal wikis stored in AWS.",
+    "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/aws-kb-retrieval-server",
+    "author": "modelcontextprotocol",
+    "category": "Cloud",
+    "stars": 18400,
+    "tags": ["aws", "bedrock", "rag", "knowledge-base", "langchain"],
+    "featured": false
+  }
+]
