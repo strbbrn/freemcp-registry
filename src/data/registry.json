@@ -2,7 +2,7 @@
   {
     "id": "sqlite-mcp",
     "name": "SQLite MCP Server",
-    "description": "A Model Context Protocol server that provides read and write access to local SQLite databases. Enables LLMs to execute SQL queries, inspect schemas, and manage data through standardized tool calls.",
+    "description": "A Model Context Protocol server that provides read and write access to local SQLite databases. Enables LLMs to execute SQL queries, inspect schemas, and manage data through standard database operations.",
     "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite",
     "author": "modelcontextprotocol",
     "category": "Database",
@@ -24,7 +24,7 @@
   {
     "id": "filesystem-mcp",
     "name": "Filesystem MCP Server",
-    "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files — with sandboxed directory restrictions for safe autonomous operation.",
+    "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files — with sandboxed directory restrictions for safe autonomous file operations.",
     "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
     "author": "modelcontextprotocol",
     "category": "Utilities",
@@ -46,7 +46,7 @@
   {
     "id": "shodan-mcp",
     "name": "Shodan MCP Server",
-    "description": "Attack surface reconnaissance via Shodan's internet-wide scanning database. Query exposed services, CVEs, open ports, and organization-wide exposure reports — purpose-built for ASM agents.",
+    "description": "Attack surface reconnaissance via Shodan's internet-wide scanning database. Query exposed services, CVEs, open ports, and organization-wide exposure reports — purpose-built for security automation.",
     "githubUrl": "https://github.com/BurtTheCoder/mcp-shodan",
     "author": "BurtTheCoder",
     "category": "Security",
@@ -217,6 +217,17 @@
     "category": "Cloud",
     "stars": 18400,
     "tags": ["google-maps", "maps", "location", "routing", "geo"],
+    "featured": false
+  },
+  {
+    "id": "remotify-mcp",
+    "name": "Remotify MCP",
+    "description": "A local stdio MCP server that lets AI coding assistants execute shell commands on remote computers through an HTTP relay. It supports per-command approval or automatic execution, while the remote machine needs only curl and bash.",
+    "githubUrl": "https://github.com/onlsol/relay.remotify.run",
+    "author": "onlsol",
+    "category": "DevOps",
+    "stars": 3,
+    "tags": ["mcp", "remote-execution", "command-line", "automation", "developer-tools"],
     "featured": false
   }
 ]
