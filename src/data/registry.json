@@ -229,5 +229,16 @@
     "stars": 3,
     "tags": ["mcp", "remote-execution", "command-line", "automation", "developer-tools"],
     "featured": false
+  },
+  {
+    "id": "aiagentcycle-mcp",
+    "name": "AIAgentCycle MCP Server",
+    "description": "Read-only remote MCP server that lets AI agents search AIAgentCycle's current services, pricing, 190 integrations, case studies, knowledge base, and contact details. It uses Streamable HTTP, requires no API key, and mirrors public website content hourly.",
+    "githubUrl": "https://github.com/aiagentcycle/aiagentcycle-mcp",
+    "author": "aiagentcycle",
+    "category": "Search",
+    "stars": 0,
+    "tags": ["knowledge-base", "business", "integrations", "read-only", "streamable-http"],
+    "featured": false
   }
 ]
