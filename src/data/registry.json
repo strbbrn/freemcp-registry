@@ -229,5 +229,16 @@
     "stars": 3,
     "tags": ["mcp", "remote-execution", "command-line", "automation", "developer-tools"],
     "featured": false
+  },
+  {
+    "id": "good-nature-vibe-catalog-mcp",
+    "name": "Good Nature Vibe Catalog MCP",
+    "description": "Search Good Nature Vibe's public product catalog and read public product, page, blog, profile, and contact information through six read-only tools. The hosted MCP endpoint is free, requires no login, and cannot create carts, orders, payments, or accounts.",
+    "githubUrl": "https://github.com/aiagentcycle/gnv-catalog-mcp",
+    "author": "aiagentcycle",
+    "category": "Search",
+    "stars": 0,
+    "tags": ["catalog", "products", "knowledge", "read-only", "remote"],
+    "featured": false
   }
 ]
