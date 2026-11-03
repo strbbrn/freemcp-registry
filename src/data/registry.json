@@ -229,5 +229,16 @@
     "stars": 3,
     "tags": ["mcp", "remote-execution", "command-line", "automation", "developer-tools"],
     "featured": false
+  },
+  {
+    "id": "holos33-mcp",
+    "name": "Holos33 MCP",
+    "description": "Answer sourced questions about Holos33's public wellbeing-platform information, modules, pricing, privacy, FAQ, and contact details through eleven read-only tools. The free hosted MCP endpoint requires no login and makes no medical diagnoses or treatment recommendations.",
+    "githubUrl": "https://github.com/aiagentcycle/holos33-mcp",
+    "author": "aiagentcycle",
+    "category": "Search",
+    "stars": 0,
+    "tags": ["knowledge", "wellbeing", "read-only", "remote", "no-auth"],
+    "featured": false
   }
 ]
