@@ -7,29 +7,47 @@
     "author": "modelcontextprotocol",
     "category": "Database",
     "stars": 18400,
-    "tags": ["sqlite", "database", "sql", "langchain", "langgraph"],
+    "tags": [
+      "sqlite",
+      "database",
+      "sql",
+      "langchain",
+      "langgraph"
+    ],
     "featured": true
   },
   {
     "id": "github-mcp",
     "name": "GitHub MCP Server",
-    "description": "Interact with GitHub APIs through MCP. Manage repositories, issues, pull requests, code search, and file operations — giving autonomous agents full-cycle software development capabilities.",
+    "description": "Interact with GitHub APIs through MCP. Manage repositories, issues, pull requests, code search, and file operations \u2014 giving autonomous agents full-cycle software development capabilities.",
     "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/github",
     "author": "modelcontextprotocol",
     "category": "Development",
     "stars": 18400,
-    "tags": ["github", "git", "devops", "issues", "pull-requests"],
+    "tags": [
+      "github",
+      "git",
+      "devops",
+      "issues",
+      "pull-requests"
+    ],
     "featured": true
   },
   {
     "id": "filesystem-mcp",
     "name": "Filesystem MCP Server",
-    "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files — with sandboxed directory restrictions for safe autonomous file operations.",
+    "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files \u2014 with sandboxed directory restrictions for safe autonomous file operations.",
     "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
     "author": "modelcontextprotocol",
     "category": "Utilities",
     "stars": 18400,
-    "tags": ["filesystem", "files", "io", "sandbox", "crewai"],
+    "tags": [
+      "filesystem",
+      "files",
+      "io",
+      "sandbox",
+      "crewai"
+    ],
     "featured": false
   },
   {
@@ -40,18 +58,31 @@
     "author": "modelcontextprotocol",
     "category": "Search",
     "stars": 18400,
-    "tags": ["search", "web", "brave", "real-time", "langchain"],
+    "tags": [
+      "search",
+      "web",
+      "brave",
+      "real-time",
+      "langchain"
+    ],
     "featured": false
   },
   {
     "id": "shodan-mcp",
     "name": "Shodan MCP Server",
-    "description": "Attack surface reconnaissance via Shodan's internet-wide scanning database. Query exposed services, CVEs, open ports, and organization-wide exposure reports — purpose-built for security automation.",
+    "description": "Attack surface reconnaissance via Shodan's internet-wide scanning database. Query exposed services, CVEs, open ports, and organization-wide exposure reports \u2014 purpose-built for security automation.",
     "githubUrl": "https://github.com/BurtTheCoder/mcp-shodan",
     "author": "BurtTheCoder",
     "category": "Security",
     "stars": 312,
-    "tags": ["shodan", "asm", "recon", "cve", "devsecops", "langgraph"],
+    "tags": [
+      "shodan",
+      "asm",
+      "recon",
+      "cve",
+      "devsecops",
+      "langgraph"
+    ],
     "featured": true
   },
   {
@@ -62,7 +93,13 @@
     "author": "vorotaai",
     "category": "Security",
     "stars": 187,
-    "tags": ["nmap", "network", "scanning", "pentest", "devsecops"],
+    "tags": [
+      "nmap",
+      "network",
+      "scanning",
+      "pentest",
+      "devsecops"
+    ],
     "featured": false
   },
   {
@@ -73,7 +110,13 @@
     "author": "modelcontextprotocol",
     "category": "Database",
     "stars": 18400,
-    "tags": ["postgresql", "database", "sql", "analytics", "langchain"],
+    "tags": [
+      "postgresql",
+      "database",
+      "sql",
+      "analytics",
+      "langchain"
+    ],
     "featured": false
   },
   {
@@ -84,7 +127,13 @@
     "author": "QuantGeekDev",
     "category": "DevOps",
     "stars": 423,
-    "tags": ["docker", "containers", "devops", "sandbox", "crewai"],
+    "tags": [
+      "docker",
+      "containers",
+      "devops",
+      "sandbox",
+      "crewai"
+    ],
     "featured": false
   },
   {
@@ -95,7 +144,13 @@
     "author": "semgrep",
     "category": "Security",
     "stars": 156,
-    "tags": ["sast", "semgrep", "code-scanning", "devsecops", "appsec"],
+    "tags": [
+      "sast",
+      "semgrep",
+      "code-scanning",
+      "devsecops",
+      "appsec"
+    ],
     "featured": false
   },
   {
@@ -106,18 +161,30 @@
     "author": "slackapi",
     "category": "Communication",
     "stars": 18400,
-    "tags": ["slack", "notifications", "alerts", "incident-response", "langgraph"],
+    "tags": [
+      "slack",
+      "notifications",
+      "alerts",
+      "incident-response",
+      "langgraph"
+    ],
     "featured": false
   },
   {
     "id": "puppeteer-mcp",
     "name": "Puppeteer MCP Server",
-    "description": "Headless browser automation through MCP. Capture screenshots, fill forms, scrape dynamic pages, and automate web interactions — essential for agents that need to test or monitor web applications.",
+    "description": "Headless browser automation through MCP. Capture screenshots, fill forms, scrape dynamic pages, and automate web interactions \u2014 essential for agents that need to test or monitor web applications.",
     "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/puppeteer",
     "author": "modelcontextprotocol",
     "category": "Utilities",
     "stars": 18400,
-    "tags": ["puppeteer", "browser", "scraping", "automation", "testing"],
+    "tags": [
+      "puppeteer",
+      "browser",
+      "scraping",
+      "automation",
+      "testing"
+    ],
     "featured": false
   },
   {
@@ -128,7 +195,13 @@
     "author": "modelcontextprotocol",
     "category": "Cloud",
     "stars": 18400,
-    "tags": ["aws", "bedrock", "rag", "knowledge-base", "langchain"],
+    "tags": [
+      "aws",
+      "bedrock",
+      "rag",
+      "knowledge-base",
+      "langchain"
+    ],
     "featured": false
   },
   {
@@ -139,7 +212,13 @@
     "author": "modelcontextprotocol",
     "category": "Utilities",
     "stars": 18400,
-    "tags": ["thinking", "reasoning", "planning", "logic", "agents"],
+    "tags": [
+      "thinking",
+      "reasoning",
+      "planning",
+      "logic",
+      "agents"
+    ],
     "featured": true
   },
   {
@@ -150,7 +229,13 @@
     "author": "modelcontextprotocol",
     "category": "Database",
     "stars": 18400,
-    "tags": ["memory", "knowledge-graph", "persistent", "learning", "rag"],
+    "tags": [
+      "memory",
+      "knowledge-graph",
+      "persistent",
+      "learning",
+      "rag"
+    ],
     "featured": true
   },
   {
@@ -161,7 +246,13 @@
     "author": "modelcontextprotocol",
     "category": "Utilities",
     "stars": 18400,
-    "tags": ["fetch", "web-reader", "markdown", "scraping", "utilities"],
+    "tags": [
+      "fetch",
+      "web-reader",
+      "markdown",
+      "scraping",
+      "utilities"
+    ],
     "featured": false
   },
   {
@@ -172,7 +263,13 @@
     "author": "makenotion",
     "category": "Utilities",
     "stars": 350,
-    "tags": ["notion", "wiki", "documentation", "productivity", "database"],
+    "tags": [
+      "notion",
+      "wiki",
+      "documentation",
+      "productivity",
+      "database"
+    ],
     "featured": false
   },
   {
@@ -183,18 +280,30 @@
     "author": "modelcontextprotocol",
     "category": "Development",
     "stars": 18400,
-    "tags": ["linear", "issues", "pm", "workflow", "project-management"],
+    "tags": [
+      "linear",
+      "issues",
+      "pm",
+      "workflow",
+      "project-management"
+    ],
     "featured": false
   },
   {
     "id": "gitlab-mcp",
     "name": "GitLab Integration MCP",
-    "description": "Interact with GitLab API. Manage repositories, issues, merge requests, groups, and build pipelines — giving autonomous agents full-cycle GitLab development capabilities.",
+    "description": "Interact with GitLab API. Manage repositories, issues, merge requests, groups, and build pipelines \u2014 giving autonomous agents full-cycle GitLab development capabilities.",
     "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gitlab",
     "author": "modelcontextprotocol",
     "category": "Development",
     "stars": 18400,
-    "tags": ["gitlab", "git", "devops", "issues", "ci-cd"],
+    "tags": [
+      "gitlab",
+      "git",
+      "devops",
+      "issues",
+      "ci-cd"
+    ],
     "featured": false
   },
   {
@@ -205,7 +314,13 @@
     "author": "modelcontextprotocol",
     "category": "DevOps",
     "stars": 18400,
-    "tags": ["sentry", "errors", "debugging", "logs", "monitoring"],
+    "tags": [
+      "sentry",
+      "errors",
+      "debugging",
+      "logs",
+      "monitoring"
+    ],
     "featured": false
   },
   {
@@ -216,7 +331,13 @@
     "author": "modelcontextprotocol",
     "category": "Cloud",
     "stars": 18400,
-    "tags": ["google-maps", "maps", "location", "routing", "geo"],
+    "tags": [
+      "google-maps",
+      "maps",
+      "location",
+      "routing",
+      "geo"
+    ],
     "featured": false
   },
   {
@@ -227,7 +348,30 @@
     "author": "onlsol",
     "category": "DevOps",
     "stars": 3,
-    "tags": ["mcp", "remote-execution", "command-line", "automation", "developer-tools"],
+    "tags": [
+      "mcp",
+      "remote-execution",
+      "command-line",
+      "automation",
+      "developer-tools"
+    ],
+    "featured": false
+  },
+  {
+    "id": "ipo-radar-mcp",
+    "name": "IPO Radar MCP",
+    "description": "Live India IPO grey-market premium (GMP), subscription/demand stats, and listing-day performance for AI agents over a free public Streamable HTTP MCP endpoint (no auth).",
+    "githubUrl": "https://github.com/songiangvan40006-boop/ipo-radar-mcp",
+    "author": "songiangvan40006-boop",
+    "category": "Utilities",
+    "stars": 0,
+    "tags": [
+      "ipo",
+      "india",
+      "finance",
+      "gmp",
+      "streamable-http"
+    ],
     "featured": false
   }
 ]
