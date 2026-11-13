@@ -48,7 +48,7 @@ analyze?.addEventListener('click',async()=>{
   if(!response.ok)throw new Error(response.status===404?'Repository not found or not public.':response.status===403?'GitHub API rate limit or access restriction.':'GitHub returned HTTP '+response.status);
   const metadata=await response.json();
   if(metadata.private||metadata.archived){status.textContent=metadata.archived?'Repository is archived. Review carefully before submission.':'Private repositories are not supported.';if(metadata.private)return;}
-  const canonical=String(metadata.html_url||'').replace(/\\/$/,'');
+  const canonical=String(metadata.html_url||'').replace(/[/]$/,'');
   const name=form.elements.namedItem('name') as HTMLInputElement;
   const description=form.elements.namedItem('description') as HTMLTextAreaElement;
   const docs=form.elements.namedItem('docs') as HTMLInputElement;
