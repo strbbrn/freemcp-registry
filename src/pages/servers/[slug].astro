@@ -1,6 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import {getServers,type RegistryServer} from '../../lib/registry';
+import {getServers,validateRegistry,type RegistryServer} from '../../lib/registry';
+const registryErrors=validateRegistry();
+if(registryErrors.length) throw new Error('Invalid MCP registry: '+registryErrors.join('; '));
 export function getStaticPaths(){return getServers().map(server=>({params:{slug:server.id},props:{server}}));}
 interface Props {server:RegistryServer}
 const {server}=Astro.props;
