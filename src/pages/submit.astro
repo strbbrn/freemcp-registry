@@ -1,0 +1,39 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Submit an MCP server — FreeMCP" description="Submit your open-source MCP server for review in the FreeMCP registry.">
+<section class="container submit"><div class="eyebrow">FREEMCP 2.0 · COMMUNITY REGISTRY</div><h1>Publish your MCP server.</h1><p class="lede">Start with a repository URL. Add what you know; our review process checks the evidence before publication. You don't need to edit registry files yourself.</p>
+<div class="panel"><div class="steps"><span>01 · Repository</span><span>02 · Details</span><span>03 · GitHub review</span></div>
+<form id="submit-server"><label>GitHub repository URL <em>Required</em><input name="repository" type="url" placeholder="https://github.com/owner/repository" required autocomplete="url"/></label>
+<div class="fields"><label>Server name <em>Required</em><input name="name" required maxlength="120" placeholder="My MCP Server"/></label><label>Category<select name="category"><option>Development</option><option>Database</option><option>Security</option><option>Search</option><option>Productivity</option><option>Communication</option><option>Cloud</option><option>Utilities</option><option>Other</option></select></label></div>
+<label>What does it do? <em>Required</em><textarea name="description" rows="3" required maxlength="1200" placeholder="Describe what your server lets AI assistants do."></textarea></label>
+<div class="fields"><label>Transport<select name="transport"><option value="unknown">Not sure</option><option value="stdio">stdio</option><option value="http">Streamable HTTP</option><option value="sse">Legacy SSE</option></select></label><label>Documentation URL <span>(optional)</span><input name="docs" type="url" placeholder="https://github.com/owner/repository#readme"/></label></div>
+<label>Installation instructions <span>(optional)</span><textarea name="installation" rows="3" maxlength="3000" placeholder="Paste documented setup instructions or link to a README section. Never include API keys or tokens."></textarea></label>
+<label>Permissions and risks <span>(optional)</span><textarea name="permissions" rows="3" maxlength="2000" placeholder="E.g. read/write filesystem access, GitHub repository permissions, network access."></textarea></label>
+<label class="confirm"><input type="checkbox" name="confirm" required/><span>I confirm that I have the right to submit this project and that no credentials or secrets are included.</span></label>
+<p id="form-error" role="alert" class="error" hidden></p><button class="primary" type="submit">Continue to GitHub submission ↗</button><p class="hint">This opens a prefilled GitHub issue for review. Nothing is automatically approved or published. GitHub sign-in may be required.</p></form></div>
+<div class="info"><h2>Prefer a manifest?</h2><p>Maintainers can describe their server in a versioned <code>freemcp.json</code> file. This is an optional proposed format; automated manifest ingestion is planned, not yet enabled.</p><a href="https://github.com/strbbrn/freemcp-registry/blob/feature/freemcp-v2-foundation/docs/SUBMISSION_SCHEMA.md" target="_blank" rel="noopener noreferrer">Read the proposed submission schema ↗</a></div></section>
+</BaseLayout>
+<script>
+const form=document.querySelector<HTMLFormElement>('#submit-server');
+form?.addEventListener('submit',(event)=>{
+ event.preventDefault();
+ const error=document.querySelector<HTMLElement>('#form-error')!;
+ const data=new FormData(form);
+ const value=(key:string)=>String(data.get(key)||'').trim();
+ let repo:URL;
+ try{repo=new URL(value('repository'));if(repo.protocol!=='https:'||repo.hostname.toLowerCase()!=='github.com'||repo.pathname.split('/').filter(Boolean).length!==2)throw new Error('invalid');}
+ catch{error.hidden=false;error.textContent='Enter a GitHub repository URL such as https://github.com/owner/repository (not a subdirectory).';return;}
+ const docs=value('docs');
+ if(docs){try{const u=new URL(docs);if(u.protocol!=='https:')throw new Error('invalid');}catch{error.hidden=false;error.textContent='Documentation URL must be a valid HTTPS link.';return;}}
+ const fields=[['Repository',repo.toString()],['Name',value('name')],['Category',value('category')],['Description',value('description')],['Transport',value('transport')],['Documentation',docs||'Not supplied'],['Installation evidence / instructions',value('installation')||'Not supplied'],['Permissions / security considerations',value('permissions')||'Not supplied']];
+ const body='## MCP server submission\n\n'+fields.map(([key,v])=>'### '+key+'\n'+v).join('\n\n')+'\n\n### Maintainer confirmation\nI confirm I am authorized to submit this listing and have not included credentials.\n\n### Review checklist (FreeMCP maintainers)\n- [ ] Confirm repository and ownership claims\n- [ ] Review documentation and installation commands\n- [ ] Check permissions, security concerns, and spam\n- [ ] Validate compatibility claims before publication\n- [ ] Approve or reject submission';
+ const title='[MCP Submission] '+value('name');
+ const url='https://github.com/strbbrn/freemcp-registry/issues/new?'+new URLSearchParams({title,body}).toString();
+ error.hidden=true;
+ window.open(url,'_blank','noopener,noreferrer');
+});
+</script>
+<style>
+.submit{padding:65px 0 100px;max-width:950px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;color:var(--accent)}h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.055em;margin:18px 0}.lede{max-width:650px;color:var(--muted);line-height:1.7}.panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;margin-top:35px}.steps{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:25px;font-size:12px;color:var(--muted);font-weight:700}form{display:grid;gap:22px}label{display:flex;flex-direction:column;gap:9px;font-size:13px;font-weight:700}label em,label span{font-style:normal;color:var(--muted);font-weight:400}input:not([type=checkbox]),textarea,select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}textarea{resize:vertical}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.confirm{display:flex;flex-direction:row;align-items:flex-start;font-weight:400;line-height:1.5}.confirm input{margin-top:4px}.confirm span{color:var(--text)}.primary{background:var(--text);color:var(--bg);padding:14px 20px;border:0;border-radius:8px;font-weight:800;cursor:pointer;justify-self:start}.hint,.error{font-size:12px;color:var(--muted);margin:0}.error{color:#ef7777}.info{padding:30px 0}.info p{color:var(--muted);line-height:1.7}.info a{color:var(--accent)}@media(max-width:640px){.panel{padding:18px}.fields{grid-template-columns:1fr}}
+</style>
