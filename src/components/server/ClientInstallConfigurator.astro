@@ -1,0 +1,64 @@
+---
+interface Props { serverId: string }
+const {serverId}=Astro.props;
+const supported=['filesystem-mcp','github-mcp','sequential-thinking-mcp'].includes(serverId);
+const docs:Record<string,string>={
+'filesystem-mcp':'https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md',
+'github-mcp':'https://github.com/github/github-mcp-server/blob/main/README.md',
+'sequential-thinking-mcp':'https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking/README.md'
+};
+---
+{supported&&<div class="install-configurator" data-server={serverId}>
+  <div class="config-head"><div><h3>Configure your MCP client</h3><p>Configurations sourced from maintainer documentation. Not independently tested by FreeMCP.</p></div><span class="evidence">Documentation reviewed</span></div>
+  <div class="selectors"><label>Client<select class="client-select"><option value="claude">Claude Desktop</option><option value="vscode">VS Code</option><option value="cursor">Cursor</option><option value="codex">Codex</option></select></label><label>Operating system<select class="os-select"><option value="unix">macOS / Linux</option><option value="windows">Windows</option></select></label></div>
+  {serverId==='filesystem-mcp'&&<label class="path-label">Allowed directory (replace with your own absolute path)<input class="path-input" type="text" value="/ABSOLUTE/PATH/TO/ALLOWED/DIRECTORY" spellcheck="false"/></label>}
+  <p class="support-status" role="status" aria-live="polite"></p>
+  <div class="code-heading"><span>Client configuration</span><button class="copy-config" type="button" disabled>Copy configuration</button></div>
+  <pre><code class="config-code"></code></pre>
+  <p class="copy-feedback" role="status" aria-live="polite"></p>
+  <p class="footnote">Only combinations explicitly documented by the maintainer are offered. Client compatibility is not a runtime certification. <a href={docs[serverId]} target="_blank" rel="noopener noreferrer">View source documentation ↗</a></p>
+</div>}
+<script>
+const documented=new Set(['filesystem-mcp','github-mcp','sequential-thinking-mcp']);
+document.querySelectorAll<HTMLElement>('.install-configurator').forEach(root=>{
+ const id=root.dataset.server||'';
+ if(!documented.has(id))return;
+ const client=root.querySelector<HTMLSelectElement>('.client-select')!;
+ const os=root.querySelector<HTMLSelectElement>('.os-select')!;
+ const path=root.querySelector<HTMLInputElement>('.path-input');
+ const status=root.querySelector<HTMLElement>('.support-status')!;
+ const code=root.querySelector<HTMLElement>('.config-code')!;
+ const copy=root.querySelector<HTMLButtonElement>('.copy-config')!;
+ const feedback=root.querySelector<HTMLElement>('.copy-feedback')!;
+ function render(){
+  const c=client.value,w=os.value==='windows';
+  let config:unknown=null;
+  let note='';
+  if(id==='filesystem-mcp'&&c==='claude'){
+   const directory=path?.value.trim()||'/ABSOLUTE/PATH/TO/ALLOWED/DIRECTORY';
+   config={mcpServers:{filesystem:{command:w?'cmd':'npx',args:[...(w?['/c','npx']:[]),'-y','@modelcontextprotocol/server-filesystem',directory]}}};
+   note='Documented for Claude Desktop. Restrict directory access; consider --read-only. Replace the sample path before use.';
+  }else if(id==='sequential-thinking-mcp'&&(c==='claude'||c==='vscode')){
+   const command=w?'cmd':'npx';
+   const args=[...(w?['/c','npx']:[]),'-y','@modelcontextprotocol/server-sequential-thinking'];
+   config=c==='claude'?{mcpServers:{'sequential-thinking':{command,args}}}:{servers:{'sequential-thinking':{command,args}}};
+   note='Maintainer-documented npx setup. Requires Node.js 24+. Thought logging is enabled by default.';
+  }else if(id==='github-mcp'&&c==='vscode'){
+   config={servers:{github:{type:'http',url:'https://api.githubcopilot.com/mcp/'}}};
+   note='Maintainer-documented remote setup for VS Code 1.101+. Authenticate through the supported OAuth flow.';
+  }else{
+   note='No maintainer-backed configuration for this combination has been added yet. Refer to the linked documentation instead of using an unverified snippet.';
+  }
+  status.textContent=note;
+  code.textContent=config?JSON.stringify(config,null,2):'Configuration unavailable for this selection.';
+  copy.disabled=!config;
+  feedback.textContent='';
+ }
+ [client,os,path].forEach(el=>el?.addEventListener(el===path?'input':'change',render));
+ copy.addEventListener('click',async()=>{if(copy.disabled)return;try{await navigator.clipboard.writeText(code.textContent||'');feedback.textContent='Configuration copied.';}catch{feedback.textContent='Clipboard unavailable. Select and copy the configuration manually.';}});
+ render();
+});
+</script>
+<style>
+.install-configurator{border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:22px;margin-bottom:22px}.config-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.config-head h3{margin:0 0 6px;font-size:18px}.config-head p,.footnote,.support-status,.copy-feedback{font-size:13px;line-height:1.6;color:var(--muted)}.evidence{font-size:11px;white-space:nowrap;border:1px solid var(--border);border-radius:30px;padding:6px 9px}.selectors{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}.selectors label,.path-label{display:flex;flex-direction:column;gap:8px;font-size:12px;font-weight:700}.selectors select,.path-label input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:11px;border-radius:8px;width:100%;min-width:0}.code-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:700;margin-top:18px}.copy-config{background:var(--text);color:var(--bg);border:0;border-radius:7px;padding:9px 12px;cursor:pointer}.copy-config:disabled{opacity:.45;cursor:not-allowed}pre{overflow:auto;padding:18px;border:1px solid var(--border);border-radius:9px;background:var(--bg);font-size:12px;line-height:1.6}.footnote a{color:var(--accent)}@media(max-width:620px){.selectors{grid-template-columns:1fr}.config-head{flex-direction:column}}
+</style>
