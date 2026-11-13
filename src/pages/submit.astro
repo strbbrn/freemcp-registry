@@ -5,7 +5,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <section class="container submit"><div class="eyebrow">FREEMCP 2.0 · COMMUNITY REGISTRY</div><h1>Publish your MCP server.</h1><p class="lede">Start with a repository URL. Add what you know; our review process checks the evidence before publication. You don't need to edit registry files yourself.</p>
 <div class="panel"><div class="steps"><span>01 · Repository</span><span>02 · Details</span><span>03 · GitHub review</span></div>
 <form id="submit-server"><label>GitHub repository URL <em>Required</em><input name="repository" type="url" placeholder="https://github.com/owner/repository" required autocomplete="url"/></label>
-<div class="fields"><label>Server name <em>Required</em><input name="name" required maxlength="120" placeholder="My MCP Server"/></label><label>Category<select name="category"><option>Development</option><option>Database</option><option>Security</option><option>Search</option><option>Productivity</option><option>Communication</option><option>Cloud</option><option>Utilities</option><option>Other</option></select></label></div>
+<div class="analyze"><button id="analyze-repo" type="button">Analyze GitHub repository</button><span id="analyze-status" role="status" aria-live="polite">Public repositories only · no code execution</span></div><div class="fields"><label>Server name <em>Required</em><input name="name" required maxlength="120" placeholder="My MCP Server"/></label><label>Category<select name="category"><option>Development</option><option>Database</option><option>Security</option><option>Search</option><option>Productivity</option><option>Communication</option><option>Cloud</option><option>Utilities</option><option>Other</option></select></label></div>
 <label>What does it do? <em>Required</em><textarea name="description" rows="3" required maxlength="1200" placeholder="Describe what your server lets AI assistants do."></textarea></label>
 <div class="fields"><label>Transport<select name="transport"><option value="unknown">Not sure</option><option value="stdio">stdio</option><option value="http">Streamable HTTP</option><option value="sse">Legacy SSE</option></select></label><label>Documentation URL <span>(optional)</span><input name="docs" type="url" placeholder="https://github.com/owner/repository#readme"/></label></div>
 <label>Installation instructions <span>(optional)</span><textarea name="installation" rows="3" maxlength="3000" placeholder="Paste documented setup instructions or link to a README section. Never include API keys or tokens."></textarea></label>
@@ -16,6 +16,34 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </BaseLayout>
 <script>
 const form=document.querySelector<HTMLFormElement>('#submit-server');
+const analyze=document.querySelector<HTMLButtonElement>('#analyze-repo');
+const status=document.querySelector<HTMLElement>('#analyze-status');
+analyze?.addEventListener('click',async()=>{
+ if(!form||!status)return;
+ const input=form.elements.namedItem('repository') as HTMLInputElement;
+ let owner:string,repo:string;
+ try{
+  const url=new URL(input.value.trim());
+  const parts=url.pathname.split('/').filter(Boolean);
+  if(url.protocol!=='https:'||url.hostname.toLowerCase()!=='github.com'||parts.length!==2||!parts.every(p=>/^[a-zA-Z0-9_.-]+$/.test(p)))throw new Error('invalid');
+  [owner,repo]=parts;
+ }catch{status.textContent='Enter a valid GitHub repository URL first.';return;}
+ analyze.disabled=true;status.textContent='Reading public GitHub repository metadata…';
+ try{
+  const response=await fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo),{headers:{Accept:'application/vnd.github+json'}});
+  if(!response.ok)throw new Error(response.status===404?'Repository not found or not public.':response.status===403?'GitHub API rate limit or access restriction.':'GitHub returned HTTP '+response.status);
+  const metadata=await response.json();
+  if(metadata.private||metadata.archived){status.textContent=metadata.archived?'Repository is archived. Review carefully before submission.':'Private repositories are not supported.';if(metadata.private)return;}
+  const name=form.elements.namedItem('name') as HTMLInputElement;
+  const description=form.elements.namedItem('description') as HTMLTextAreaElement;
+  const docs=form.elements.namedItem('docs') as HTMLInputElement;
+  if(!name.value.trim())name.value=String(metadata.name||'').slice(0,120);
+  if(!description.value.trim()&&metadata.description)description.value=String(metadata.description).slice(0,1200);
+  if(!docs.value.trim()&&metadata.html_url)docs.value=String(metadata.html_url)+'#readme';
+  status.textContent='Repository metadata loaded. Review and complete all details before submitting. Installation, permissions, and compatibility were not verified.';
+ }catch(e){status.textContent=e instanceof Error?e.message:'Unable to analyze repository. You can still fill the form manually.';}
+ finally{analyze.disabled=false;}
+});
 form?.addEventListener('submit',(event)=>{
  event.preventDefault();
  const error=document.querySelector<HTMLElement>('#form-error')!;
@@ -35,5 +63,5 @@ form?.addEventListener('submit',(event)=>{
 });
 </script>
 <style>
-.submit{padding:65px 0 100px;max-width:950px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;color:var(--accent)}h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.055em;margin:18px 0}.lede{max-width:650px;color:var(--muted);line-height:1.7}.panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;margin-top:35px}.steps{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:25px;font-size:12px;color:var(--muted);font-weight:700}form{display:grid;gap:22px}label{display:flex;flex-direction:column;gap:9px;font-size:13px;font-weight:700}label em,label span{font-style:normal;color:var(--muted);font-weight:400}input:not([type=checkbox]),textarea,select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}textarea{resize:vertical}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.confirm{display:flex;flex-direction:row;align-items:flex-start;font-weight:400;line-height:1.5}.confirm input{margin-top:4px}.confirm span{color:var(--text)}.primary{background:var(--text);color:var(--bg);padding:14px 20px;border:0;border-radius:8px;font-weight:800;cursor:pointer;justify-self:start}.hint,.error{font-size:12px;color:var(--muted);margin:0}.error{color:#ef7777}.info{padding:30px 0}.info p{color:var(--muted);line-height:1.7}.info a{color:var(--accent)}@media(max-width:640px){.panel{padding:18px}.fields{grid-template-columns:1fr}}
+.submit{padding:65px 0 100px;max-width:950px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;color:var(--accent)}h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.055em;margin:18px 0}.lede{max-width:650px;color:var(--muted);line-height:1.7}.panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;margin-top:35px}.steps{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:25px;font-size:12px;color:var(--muted);font-weight:700}form{display:grid;gap:22px}label{display:flex;flex-direction:column;gap:9px;font-size:13px;font-weight:700}label em,label span{font-style:normal;color:var(--muted);font-weight:400}input:not([type=checkbox]),textarea,select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}textarea{resize:vertical}.analyze{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.analyze button{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:10px 14px;cursor:pointer;font-weight:700}.analyze button:disabled{opacity:.55;cursor:wait}.analyze span{color:var(--muted);font-size:12px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.confirm{display:flex;flex-direction:row;align-items:flex-start;font-weight:400;line-height:1.5}.confirm input{margin-top:4px}.confirm span{color:var(--text)}.primary{background:var(--text);color:var(--bg);padding:14px 20px;border:0;border-radius:8px;font-weight:800;cursor:pointer;justify-self:start}.hint,.error{font-size:12px;color:var(--muted);margin:0}.error{color:#ef7777}.info{padding:30px 0}.info p{color:var(--muted);line-height:1.7}.info a{color:var(--accent)}@media(max-width:640px){.panel{padding:18px}.fields{grid-template-columns:1fr}}
 </style>
