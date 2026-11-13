@@ -78,6 +78,26 @@ analyze?.addEventListener('click',async()=>{
     sourceUrl=canonical+'/blob/'+encodeURIComponent(String(metadata.default_branch||'main'))+'/freemcp.json';
    }else if(manifestResponse.status!==404){source='Repository loaded; manifest could not be retrieved (GitHub HTTP '+manifestResponse.status+').';}
   }catch(e){source='Repository loaded; manifest ignored: '+(e instanceof Error?e.message:'invalid JSON');}
+  // README is untrusted documentation. Extract only plain-language hints, never executable commands.
+  try{
+   const readmeResponse=await fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo)+'/readme',{headers:{Accept:'application/vnd.github.raw+json'}});
+   if(readmeResponse.ok){
+    const readme=await readmeResponse.text();
+    if(readme.length<=120000){
+     const headings=readme.split('\\n').map(line=>line.trim()).filter(line=>/^#{1,4}\\s+/.test(line)).map(line=>line.replace(/^#+\\s+/,'').slice(0,80)).slice(0,24);
+     const matched=headings.filter(h=>/install|setup|configur|permission|security|tool|usage/i.test(h));
+     if(matched.length){
+      source+=' README sections found: '+matched.join(', ')+'. Review the README manually; no commands were imported.';
+      if(sourceUrl===canonical)sourceUrl=canonical+'#readme';
+     }
+     if(!description.value.trim()){
+      const paragraphs=readme.replace(/\\r/g,'').split(/\\n\\s*\\n/).map(p=>p.trim()).filter(p=>p&&!/^(#|>|!\\[|\\[!|\\`\\`\\`|<)/.test(p)&&!p.includes('\\n#')&&p.length>=40&&p.length<=500);
+      const plain=paragraphs.find(p=>!/[<>\\`]/.test(p)&&!p.includes('](')&&!p.includes('http'));
+      if(plain)description.value=plain.slice(0,1200);
+     }
+    }else{source+=' README exceeds extraction size limit.';}
+   }
+  }catch{source+=' README analysis unavailable.';}
   if(evidence&&evidenceMessage&&evidenceLink){evidence.hidden=false;evidenceMessage.textContent=source;evidenceLink.href=sourceUrl;evidenceLink.hidden=!sourceUrl;}
   status.textContent='Analysis complete. Review every field before submitting; no security or compatibility verification has been performed.';
  }catch(e){status.textContent=e instanceof Error?e.message:'Unable to analyze repository. You can still fill the form manually.';}
