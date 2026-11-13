@@ -1,0 +1,7 @@
+---
+import evidence from '../../data/installation-evidence.json';
+const item=evidence['sequential-thinking-mcp'];
+const config=JSON.stringify({mcpServers:{'sequential-thinking':{command:item.command,args:item.args}}},null,2);
+---
+<div class="verified-doc"><p><strong>Maintainer-documented setup — not runtime tested by FreeMCP.</strong> Requires {item.runtime}; uses {item.transport} transport.</p><p>The maintainer documents this configuration for Claude Desktop on macOS and Linux:</p><pre><code>{config}</code></pre><p>For Windows, use <code>cmd</code> as the command and <code>["/c","npx","-y","@modelcontextprotocol/server-sequential-thinking"]</code> as arguments.</p><p>Privacy: thought content is logged to stderr by default. Set <code>DISABLE_THOUGHT_LOGGING=true</code> to disable logging.</p><p>Tool: <code>sequentialthinking</code>. After reconnecting your client, check that the tool appears.</p><a href={item.sourceUrl} target="_blank" rel="noopener noreferrer">Read the maintainer's installation documentation ↗</a></div>
+<style>.verified-doc{background:var(--surface);border:1px solid var(--border);padding:20px;border-radius:10px}.verified-doc p{color:var(--muted);line-height:1.7;font-size:13px}.verified-doc strong{color:var(--text)}pre{padding:16px;background:var(--bg);border:1px solid var(--border);border-radius:8px;overflow:auto}code{overflow-wrap:anywhere}.verified-doc a{color:var(--accent)}</style>
