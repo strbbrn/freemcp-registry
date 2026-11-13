@@ -5,19 +5,33 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <section class="container submit"><div class="eyebrow">FREEMCP 2.0 · COMMUNITY REGISTRY</div><h1>Publish your MCP server.</h1><p class="lede">Start with a repository URL. Add what you know; our review process checks the evidence before publication. You don't need to edit registry files yourself.</p>
 <div class="panel"><div class="steps"><span>01 · Repository</span><span>02 · Details</span><span>03 · GitHub review</span></div>
 <form id="submit-server"><label>GitHub repository URL <em>Required</em><input name="repository" type="url" placeholder="https://github.com/owner/repository" required autocomplete="url"/></label>
-<div class="analyze"><button id="analyze-repo" type="button">Analyze GitHub repository</button><span id="analyze-status" role="status" aria-live="polite">Public repositories only · no code execution</span></div><div class="fields"><label>Server name <em>Required</em><input name="name" required maxlength="120" placeholder="My MCP Server"/></label><label>Category<select name="category"><option>Development</option><option>Database</option><option>Security</option><option>Search</option><option>Productivity</option><option>Communication</option><option>Cloud</option><option>Utilities</option><option>Other</option></select></label></div>
+<div class="analyze"><button id="analyze-repo" type="button">Analyze GitHub repository</button><span id="analyze-status" role="status" aria-live="polite">Public repositories only · no code execution</span></div><div id="evidence-panel" class="evidence" hidden><strong>Repository evidence</strong><p id="evidence-message"></p><a id="evidence-link" href="#" target="_blank" rel="noopener noreferrer" hidden>View source ↗</a></div><div class="fields"><label>Server name <em>Required</em><input name="name" required maxlength="120" placeholder="My MCP Server"/></label><label>Category<select name="category"><option>Development</option><option>Database</option><option>Security</option><option>Search</option><option>Productivity</option><option>Communication</option><option>Cloud</option><option>Utilities</option><option>Other</option></select></label></div>
 <label>What does it do? <em>Required</em><textarea name="description" rows="3" required maxlength="1200" placeholder="Describe what your server lets AI assistants do."></textarea></label>
 <div class="fields"><label>Transport<select name="transport"><option value="unknown">Not sure</option><option value="stdio">stdio</option><option value="http">Streamable HTTP</option><option value="sse">Legacy SSE</option></select></label><label>Documentation URL <span>(optional)</span><input name="docs" type="url" placeholder="https://github.com/owner/repository#readme"/></label></div>
 <label>Installation instructions <span>(optional)</span><textarea name="installation" rows="3" maxlength="3000" placeholder="Paste documented setup instructions or link to a README section. Never include API keys or tokens."></textarea></label>
 <label>Permissions and risks <span>(optional)</span><textarea name="permissions" rows="3" maxlength="2000" placeholder="E.g. read/write filesystem access, GitHub repository permissions, network access."></textarea></label>
 <label class="confirm"><input type="checkbox" name="confirm" required/><span>I confirm that I have the right to submit this project and that no credentials or secrets are included.</span></label>
 <p id="form-error" role="alert" class="error" hidden></p><button class="primary" type="submit">Continue to GitHub submission ↗</button><p class="hint">This opens a prefilled GitHub issue for review. Nothing is automatically approved or published. GitHub sign-in may be required.</p></form></div>
-<div class="info"><h2>Prefer a manifest?</h2><p>Maintainers can describe their server in a versioned <code>freemcp.json</code> file. This is an optional proposed format; automated manifest ingestion is planned, not yet enabled.</p><a href="https://github.com/strbbrn/freemcp-registry/blob/feature/freemcp-v2-foundation/docs/SUBMISSION_SCHEMA.md" target="_blank" rel="noopener noreferrer">Read the proposed submission schema ↗</a></div></section>
+<div class="info"><h2>Prefer a manifest?</h2><p>Maintainers can describe their server in a versioned <code>freemcp.json</code> file. The analyzer can now read a valid root manifest from a public GitHub repository; all details still require human review.</p><a href="https://github.com/strbbrn/freemcp-registry/blob/feature/freemcp-v2-foundation/docs/SUBMISSION_SCHEMA.md" target="_blank" rel="noopener noreferrer">Read the proposed submission schema ↗</a></div></section>
 </BaseLayout>
 <script>
 const form=document.querySelector<HTMLFormElement>('#submit-server');
 const analyze=document.querySelector<HTMLButtonElement>('#analyze-repo');
 const status=document.querySelector<HTMLElement>('#analyze-status');
+const evidence=document.querySelector<HTMLElement>('#evidence-panel');
+const evidenceMessage=document.querySelector<HTMLElement>('#evidence-message');
+const evidenceLink=document.querySelector<HTMLAnchorElement>('#evidence-link');
+const allowedCategories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
+const safeText=(v:unknown,max:number)=>typeof v==='string'?v.trim().slice(0,max):'';
+const isRecord=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==null&&!Array.isArray(v);
+function validManifest(v:unknown,repository:string):v is Record<string,unknown>{
+ if(!isRecord(v)||v.schemaVersion!==1||!safeText(v.name,120)||!safeText(v.description,1200)||v.repository!==repository)return false;
+ if(v.category!==undefined&&!allowedCategories.includes(String(v.category)))return false;
+ if(v.transport!==undefined&&!['stdio','http','sse','unknown'].includes(String(v.transport)))return false;
+ if(v.installation!==undefined&&(!isRecord(v.installation)||!safeText(v.installation.command,200)||!Array.isArray(v.installation.args)||v.installation.args.length>20||!v.installation.args.every(a=>typeof a==='string'&&a.length<=300)))return false;
+ if(v.permissions!==undefined&&(!Array.isArray(v.permissions)||v.permissions.length>30||!v.permissions.every(p=>typeof p==='string'&&p.length<=200)))return false;
+ return true;
+}
 analyze?.addEventListener('click',async()=>{
  if(!form||!status)return;
  const input=form.elements.namedItem('repository') as HTMLInputElement;
@@ -34,13 +48,38 @@ analyze?.addEventListener('click',async()=>{
   if(!response.ok)throw new Error(response.status===404?'Repository not found or not public.':response.status===403?'GitHub API rate limit or access restriction.':'GitHub returned HTTP '+response.status);
   const metadata=await response.json();
   if(metadata.private||metadata.archived){status.textContent=metadata.archived?'Repository is archived. Review carefully before submission.':'Private repositories are not supported.';if(metadata.private)return;}
+  const canonical=String(metadata.html_url||'').replace(/\\/$/,'');
   const name=form.elements.namedItem('name') as HTMLInputElement;
   const description=form.elements.namedItem('description') as HTMLTextAreaElement;
   const docs=form.elements.namedItem('docs') as HTMLInputElement;
   if(!name.value.trim())name.value=String(metadata.name||'').slice(0,120);
   if(!description.value.trim()&&metadata.description)description.value=String(metadata.description).slice(0,1200);
   if(!docs.value.trim()&&metadata.html_url)docs.value=String(metadata.html_url)+'#readme';
-  status.textContent='Repository metadata loaded. Review and complete all details before submitting. Installation, permissions, and compatibility were not verified.';
+  const category=form.elements.namedItem('category') as HTMLSelectElement;
+  const transport=form.elements.namedItem('transport') as HTMLSelectElement;
+  const installation=form.elements.namedItem('installation') as HTMLTextAreaElement;
+  const permissions=form.elements.namedItem('permissions') as HTMLTextAreaElement;
+  let source='GitHub repository metadata only. No verified installation or compatibility information.';
+  let sourceUrl=canonical;
+  try{
+   const manifestResponse=await fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo)+'/contents/freemcp.json',{headers:{Accept:'application/vnd.github.raw+json'}});
+   if(manifestResponse.ok){
+    const raw=await manifestResponse.text();
+    if(raw.length>30000)throw new Error('Manifest exceeds 30 KB limit');
+    const manifest=JSON.parse(raw);
+    if(!validManifest(manifest,canonical))throw new Error('Manifest schema or repository URL is invalid');
+    if(!name.value.trim()||name.value===metadata.name)name.value=safeText(manifest.name,120);
+    if(!description.value.trim()||description.value===metadata.description)description.value=safeText(manifest.description,1200);
+    if(manifest.category)category.value=String(manifest.category);
+    if(manifest.transport)transport.value=String(manifest.transport);
+    if(isRecord(manifest.installation)&&!installation.value.trim())installation.value='Documented command (review before running): '+JSON.stringify({command:manifest.installation.command,args:manifest.installation.args});
+    if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=manifest.permissions.join('\\n');
+    source='Valid freemcp.json manifest found. Fields are maintainer-provided, not independently verified.';
+    sourceUrl=canonical+'/blob/'+encodeURIComponent(String(metadata.default_branch||'main'))+'/freemcp.json';
+   }else if(manifestResponse.status!==404){source='Repository loaded; manifest could not be retrieved (GitHub HTTP '+manifestResponse.status+').';}
+  }catch(e){source='Repository loaded; manifest ignored: '+(e instanceof Error?e.message:'invalid JSON');}
+  if(evidence&&evidenceMessage&&evidenceLink){evidence.hidden=false;evidenceMessage.textContent=source;evidenceLink.href=sourceUrl;evidenceLink.hidden=!sourceUrl;}
+  status.textContent='Analysis complete. Review every field before submitting; no security or compatibility verification has been performed.';
  }catch(e){status.textContent=e instanceof Error?e.message:'Unable to analyze repository. You can still fill the form manually.';}
  finally{analyze.disabled=false;}
 });
@@ -63,5 +102,5 @@ form?.addEventListener('submit',(event)=>{
 });
 </script>
 <style>
-.submit{padding:65px 0 100px;max-width:950px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;color:var(--accent)}h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.055em;margin:18px 0}.lede{max-width:650px;color:var(--muted);line-height:1.7}.panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;margin-top:35px}.steps{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:25px;font-size:12px;color:var(--muted);font-weight:700}form{display:grid;gap:22px}label{display:flex;flex-direction:column;gap:9px;font-size:13px;font-weight:700}label em,label span{font-style:normal;color:var(--muted);font-weight:400}input:not([type=checkbox]),textarea,select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}textarea{resize:vertical}.analyze{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.analyze button{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:10px 14px;cursor:pointer;font-weight:700}.analyze button:disabled{opacity:.55;cursor:wait}.analyze span{color:var(--muted);font-size:12px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.confirm{display:flex;flex-direction:row;align-items:flex-start;font-weight:400;line-height:1.5}.confirm input{margin-top:4px}.confirm span{color:var(--text)}.primary{background:var(--text);color:var(--bg);padding:14px 20px;border:0;border-radius:8px;font-weight:800;cursor:pointer;justify-self:start}.hint,.error{font-size:12px;color:var(--muted);margin:0}.error{color:#ef7777}.info{padding:30px 0}.info p{color:var(--muted);line-height:1.7}.info a{color:var(--accent)}@media(max-width:640px){.panel{padding:18px}.fields{grid-template-columns:1fr}}
+.submit{padding:65px 0 100px;max-width:950px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;color:var(--accent)}h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.055em;margin:18px 0}.lede{max-width:650px;color:var(--muted);line-height:1.7}.panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;margin-top:35px}.steps{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:25px;font-size:12px;color:var(--muted);font-weight:700}form{display:grid;gap:22px}label{display:flex;flex-direction:column;gap:9px;font-size:13px;font-weight:700}label em,label span{font-style:normal;color:var(--muted);font-weight:400}input:not([type=checkbox]),textarea,select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}textarea{resize:vertical}.evidence{border:1px solid var(--border);border-radius:8px;padding:15px;background:var(--bg);font-size:13px}.evidence p{color:var(--muted);line-height:1.6}.evidence a{color:var(--accent)}.analyze{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.analyze button{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:10px 14px;cursor:pointer;font-weight:700}.analyze button:disabled{opacity:.55;cursor:wait}.analyze span{color:var(--muted);font-size:12px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.confirm{display:flex;flex-direction:row;align-items:flex-start;font-weight:400;line-height:1.5}.confirm input{margin-top:4px}.confirm span{color:var(--text)}.primary{background:var(--text);color:var(--bg);padding:14px 20px;border:0;border-radius:8px;font-weight:800;cursor:pointer;justify-self:start}.hint,.error{font-size:12px;color:var(--muted);margin:0}.error{color:#ef7777}.info{padding:30px 0}.info p{color:var(--muted);line-height:1.7}.info a{color:var(--accent)}@media(max-width:640px){.panel{padding:18px}.fields{grid-template-columns:1fr}}
 </style>
