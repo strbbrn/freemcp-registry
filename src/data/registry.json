@@ -222,7 +222,7 @@
   {
     "id": "remotify-mcp",
     "name": "Remotify MCP",
-    "description": "A local stdio MCP server that lets AI coding assistants execute shell commands on remote computers through an HTTP relay. It supports per-command approval or automatic execution, while the remote machine needs only curl and bash.",
+    "description": "Security warning: Automatic mode runs commands without operator approval. Use supervised mode and a self-hosted relay for sensitive workloads. Remotify is a local stdio MCP server for running shell commands on a remote computer through an HTTP relay.",
     "githubUrl": "https://github.com/onlsol/relay.remotify.run",
     "author": "onlsol",
     "category": "DevOps",
