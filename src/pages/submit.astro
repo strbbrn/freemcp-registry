@@ -1,0 +1,143 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout title="Submit an MCP server — FreeMCP" description="Submit your open-source MCP server for review in the FreeMCP registry.">
+<section class="container submit"><div class="eyebrow">FREEMCP 2.0 · COMMUNITY REGISTRY</div><h1>Publish your MCP server.</h1><p class="lede">Start with a repository URL. Add what you know; our review process checks the evidence before publication. You don't need to edit registry files yourself.</p>
+<div class="panel"><div class="steps"><span>01 · Repository</span><span>02 · Details</span><span>03 · GitHub review</span></div>
+<form id="submit-server"><label>GitHub repository URL <em>Required</em><input name="repository" type="url" placeholder="https://github.com/owner/repository" required autocomplete="url"/></label>
+<div class="analyze"><button id="analyze-repo" type="button">Analyze GitHub repository</button><span id="analyze-status" role="status" aria-live="polite">Public repositories only · no code execution</span></div><div id="evidence-panel" class="evidence" hidden><strong>Repository evidence</strong><p id="evidence-message"></p><a id="evidence-link" href="#" target="_blank" rel="noopener noreferrer" hidden>View source ↗</a></div><div class="fields"><label>Server name <em>Required</em><input name="name" required maxlength="120" placeholder="My MCP Server"/></label><label>Category<select name="category"><option>Development</option><option>Database</option><option>Security</option><option>Search</option><option>Productivity</option><option>Communication</option><option>Cloud</option><option>Utilities</option><option>Other</option></select></label></div>
+<label>What does it do? <em>Required</em><textarea name="description" rows="3" required maxlength="1200" placeholder="Describe what your server lets AI assistants do."></textarea></label>
+<div class="fields"><label>Transport<select name="transport"><option value="unknown">Not sure</option><option value="stdio">stdio</option><option value="http">Streamable HTTP</option><option value="sse">Legacy SSE</option></select></label><label>Documentation URL <span>(optional)</span><input name="docs" type="url" placeholder="https://github.com/owner/repository#readme"/></label></div>
+<label>Installation instructions <span>(optional)</span><textarea name="installation" rows="3" maxlength="3000" placeholder="Paste documented setup instructions or link to a README section. Never include API keys or tokens."></textarea></label>
+<label>Permissions and risks <span>(optional)</span><textarea name="permissions" rows="3" maxlength="2000" placeholder="E.g. read/write filesystem access, GitHub repository permissions, network access."></textarea></label>
+<div id="security-panel" class="evidence" hidden><strong>Submission review flags (heuristic only)</strong><p id="security-message"></p></div><label class="confirm"><input type="checkbox" name="confirm" required/><span>I confirm that I have the right to submit this project and that no credentials or secrets are included.</span></label>
+<p id="form-error" role="alert" class="error" hidden></p><button class="primary" type="submit">Continue to GitHub submission ↗</button><p class="hint">This opens a prefilled GitHub issue for review. Nothing is automatically approved or published. GitHub sign-in may be required.</p></form></div>
+<div class="info"><h2>Prefer a manifest?</h2><p>Maintainers can describe their server in a versioned <code>freemcp.json</code> file. The analyzer can now read a valid root manifest from a public GitHub repository; all details still require human review.</p><a href="https://github.com/strbbrn/freemcp-registry/blob/feature/freemcp-v2-foundation/docs/SUBMISSION_SCHEMA.md" target="_blank" rel="noopener noreferrer">Read the proposed submission schema ↗</a></div></section>
+</BaseLayout>
+<script>
+const form=document.querySelector<HTMLFormElement>('#submit-server');
+const analyze=document.querySelector<HTMLButtonElement>('#analyze-repo');
+const status=document.querySelector<HTMLElement>('#analyze-status');
+const evidence=document.querySelector<HTMLElement>('#evidence-panel');
+const evidenceMessage=document.querySelector<HTMLElement>('#evidence-message');
+const evidenceLink=document.querySelector<HTMLAnchorElement>('#evidence-link');
+const securityPanel=document.querySelector<HTMLElement>('#security-panel');
+const securityMessage=document.querySelector<HTMLElement>('#security-message');
+let repoFlags:string[]=[];
+const secretPattern=/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\\s*[:=]\\s*["']?[A-Za-z0-9_+/.=-]{12,})/i;
+const securityHints=(value:string)=>{const flags:string[]=[];const text=value.toLowerCase();if(text.includes('curl ')&&text.includes('| bash')||text.includes('wget ')&&text.includes('| sh'))flags.push('Remote shell installation requires manual review');if(text.includes('sudo ')||text.includes('chmod 777')||text.includes('--privileged'))flags.push('Elevated privileges or broad filesystem permissions mentioned');if(text.includes('rm -rf')||text.includes('invoke-expression'))flags.push('Potentially destructive or dynamic command mentioned');return flags;};
+const allowedCategories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
+const safeText=(v:unknown,max:number)=>typeof v==='string'?v.trim().slice(0,max):'';
+const isRecord=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==null&&!Array.isArray(v);
+function validManifest(v:unknown,repository:string):v is Record<string,unknown>{
+ if(!isRecord(v)||v.schemaVersion!==1||!safeText(v.name,120)||!safeText(v.description,1200)||v.repository!==repository)return false;
+ if(v.category!==undefined&&!allowedCategories.includes(String(v.category)))return false;
+ if(v.transport!==undefined&&!['stdio','http','sse','unknown'].includes(String(v.transport)))return false;
+ if(v.installation!==undefined&&(!isRecord(v.installation)||!safeText(v.installation.command,200)||!Array.isArray(v.installation.args)||v.installation.args.length>20||!v.installation.args.every(a=>typeof a==='string'&&a.length<=300)))return false;
+ if(v.permissions!==undefined&&(!Array.isArray(v.permissions)||v.permissions.length>30||!v.permissions.every(p=>typeof p==='string'&&p.length<=200)))return false;
+ return true;
+}
+analyze?.addEventListener('click',async()=>{
+ if(!form||!status)return;
+ const input=form.elements.namedItem('repository') as HTMLInputElement;
+ let owner:string,repo:string;
+ try{
+  const url=new URL(input.value.trim());
+  const parts=url.pathname.split('/').filter(Boolean);
+  if(url.protocol!=='https:'||url.hostname.toLowerCase()!=='github.com'||parts.length!==2||!parts.every(p=>/^[a-zA-Z0-9_.-]+$/.test(p)))throw new Error('invalid');
+  [owner,repo]=parts;
+ }catch{status.textContent='Enter a valid GitHub repository URL first.';return;}
+ analyze.disabled=true;status.textContent='Reading public GitHub repository metadata…';
+ try{
+  const response=await fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo),{headers:{Accept:'application/vnd.github+json'}});
+  if(!response.ok)throw new Error(response.status===404?'Repository not found or not public.':response.status===403?'GitHub API rate limit or access restriction.':'GitHub returned HTTP '+response.status);
+  const metadata=await response.json();
+  repoFlags=[];
+  if(metadata.archived)repoFlags.push('Repository is archived');
+  if(metadata.disabled)repoFlags.push('Repository is disabled');
+  if(metadata.fork)repoFlags.push('Repository is a fork; verify original source and maintainer');
+  if(!metadata.license?.spdx_id||metadata.license.spdx_id==='NOASSERTION')repoFlags.push('License is missing or not machine-readable');
+  if(metadata.pushed_at&&Date.now()-Date.parse(metadata.pushed_at)>365*86400000)repoFlags.push('No repository push detected in over one year');
+  if(metadata.open_issues_count>100)repoFlags.push('High open-issue count; review maintenance context');
+  if(metadata.private||metadata.archived){status.textContent=metadata.archived?'Repository is archived. Review carefully before submission.':'Private repositories are not supported.';if(metadata.private)return;}
+  const canonical=String(metadata.html_url||'').replace(/[/]$/,'');
+  const name=form.elements.namedItem('name') as HTMLInputElement;
+  const description=form.elements.namedItem('description') as HTMLTextAreaElement;
+  const docs=form.elements.namedItem('docs') as HTMLInputElement;
+  if(!name.value.trim())name.value=String(metadata.name||'').slice(0,120);
+  if(!description.value.trim()&&metadata.description)description.value=String(metadata.description).slice(0,1200);
+  if(!docs.value.trim()&&metadata.html_url)docs.value=String(metadata.html_url)+'#readme';
+  const category=form.elements.namedItem('category') as HTMLSelectElement;
+  const transport=form.elements.namedItem('transport') as HTMLSelectElement;
+  const installation=form.elements.namedItem('installation') as HTMLTextAreaElement;
+  const permissions=form.elements.namedItem('permissions') as HTMLTextAreaElement;
+  let source='GitHub repository metadata only. No verified installation or compatibility information.';
+  let sourceUrl=canonical;
+  try{
+   const manifestResponse=await fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo)+'/contents/freemcp.json',{headers:{Accept:'application/vnd.github.raw+json'}});
+   if(manifestResponse.ok){
+    const raw=await manifestResponse.text();
+    if(raw.length>30000)throw new Error('Manifest exceeds 30 KB limit');
+    const manifest=JSON.parse(raw);
+    if(!validManifest(manifest,canonical))throw new Error('Manifest schema or repository URL is invalid');
+    if(!name.value.trim()||name.value===metadata.name)name.value=safeText(manifest.name,120);
+    if(!description.value.trim()||description.value===metadata.description)description.value=safeText(manifest.description,1200);
+    if(manifest.category)category.value=String(manifest.category);
+    if(manifest.transport)transport.value=String(manifest.transport);
+    if(isRecord(manifest.installation)&&!installation.value.trim())installation.value='Documented command (review before running): '+JSON.stringify({command:manifest.installation.command,args:manifest.installation.args});
+    if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=manifest.permissions.join('\\n');
+    source='Valid freemcp.json manifest found. Fields are maintainer-provided, not independently verified.';
+    sourceUrl=canonical+'/blob/'+encodeURIComponent(String(metadata.default_branch||'main'))+'/freemcp.json';
+   }else if(manifestResponse.status!==404){source='Repository loaded; manifest could not be retrieved (GitHub HTTP '+manifestResponse.status+').';}
+  }catch(e){source='Repository loaded; manifest ignored: '+(e instanceof Error?e.message:'invalid JSON');}
+  // README is untrusted documentation. Extract only plain-language hints, never executable commands.
+  try{
+   const readmeResponse=await fetch('https://api.github.com/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo)+'/readme',{headers:{Accept:'application/vnd.github.raw+json'}});
+   if(readmeResponse.ok){
+    const readme=await readmeResponse.text();
+    if(readme.length<=120000){
+     repoFlags.push(...securityHints(readme));
+     const headings=readme.split('\\n').map(line=>line.trim()).filter(line=>/^#{1,4}\\s+/.test(line)).map(line=>line.replace(/^#+\\s+/,'').slice(0,80)).slice(0,24);
+     const matched=headings.filter(h=>/install|setup|configur|permission|security|tool|usage/i.test(h));
+     if(matched.length){
+      source+=' README sections found: '+matched.join(', ')+'. Review the README manually; no commands were imported.';
+      if(sourceUrl===canonical)sourceUrl=canonical+'#readme';
+     }
+     if(!description.value.trim()){
+       const paragraphs=readme.split(String.fromCharCode(10,10)).map(p=>p.trim()).filter(p=>p.length>=40&&p.length<=500&&!p.startsWith('#')&&!p.startsWith('>')&&!p.startsWith('![')&&!p.startsWith('<')&&!p.includes('```'));
+       const plain=paragraphs.find(p=>!p.includes('<')&&!p.includes('>')&&!p.includes('```')&&!p.includes('](')&&!p.includes('http'));
+      if(plain)description.value=plain.slice(0,1200);
+     }
+    }else{source+=' README exceeds extraction size limit.';}
+   }
+  }catch{source+=' README analysis unavailable.';}
+  if(securityPanel&&securityMessage){securityPanel.hidden=false;securityMessage.textContent=repoFlags.length?Array.from(new Set(repoFlags)).join(' • '):'No flags identified by limited metadata and README heuristics. This is not a security audit.';}
+  if(evidence&&evidenceMessage&&evidenceLink){evidence.hidden=false;evidenceMessage.textContent=source;evidenceLink.href=sourceUrl;evidenceLink.hidden=!sourceUrl;}
+  status.textContent='Analysis complete. Review every field before submitting; no security or compatibility verification has been performed.';
+ }catch(e){status.textContent=e instanceof Error?e.message:'Unable to analyze repository. You can still fill the form manually.';}
+ finally{analyze.disabled=false;}
+});
+form?.addEventListener('submit',(event)=>{
+ event.preventDefault();
+ const error=document.querySelector<HTMLElement>('#form-error')!;
+ const data=new FormData(form);
+ const value=(key:string)=>String(data.get(key)||'').trim();
+ let repo:URL;
+ try{repo=new URL(value('repository'));if(repo.protocol!=='https:'||repo.hostname.toLowerCase()!=='github.com'||repo.pathname.split('/').filter(Boolean).length!==2)throw new Error('invalid');}
+ catch{error.hidden=false;error.textContent='Enter a GitHub repository URL such as https://github.com/owner/repository (not a subdirectory).';return;}
+ const docs=value('docs');
+ if(docs){try{const u=new URL(docs);if(u.protocol!=='https:')throw new Error('invalid');}catch{error.hidden=false;error.textContent='Documentation URL must be a valid HTTPS link.';return;}}
+ const submittedText=[value('name'),value('description'),value('installation'),value('permissions')].join(String.fromCharCode(10));
+ if(secretPattern.test(submittedText)){error.hidden=false;error.textContent='Possible credential or private key detected. Remove secrets before submitting. This check is not exhaustive.';return;}
+ const finalFlags=Array.from(new Set([...repoFlags,...securityHints(submittedText)]));
+ const fields=[['Repository',repo.toString()],['Name',value('name')],['Category',value('category')],['Description',value('description')],['Transport',value('transport')],['Documentation',docs||'Not supplied'],['Installation evidence / instructions',value('installation')||'Not supplied'],['Permissions / security considerations',value('permissions')||'Not supplied'],['Automated review flags (unverified)',finalFlags.length?finalFlags.join('; '):'No flags from limited heuristic checks; manual security review required']];
+ const body='## MCP server submission\n\n'+fields.map(([key,v])=>'### '+key+'\n'+v).join('\n\n')+'\n\n### Maintainer confirmation\nI confirm I am authorized to submit this listing and have not included credentials.\n\n### Review checklist (FreeMCP maintainers)\n- [ ] Confirm repository and ownership claims\n- [ ] Review documentation and installation commands\n- [ ] Check permissions, security concerns, and spam\n- [ ] Validate compatibility claims before publication\n- [ ] Approve or reject submission';
+ const title='[MCP Submission] '+value('name');
+ const url='https://github.com/strbbrn/freemcp-registry/issues/new?'+new URLSearchParams({title,body}).toString();
+ error.hidden=true;
+ window.open(url,'_blank','noopener,noreferrer');
+});
+</script>
+<style>
+.submit{padding:65px 0 100px;max-width:950px}.eyebrow{font-size:11px;font-weight:800;letter-spacing:.15em;color:var(--accent)}h1{font-size:clamp(38px,6vw,62px);letter-spacing:-.055em;margin:18px 0}.lede{max-width:650px;color:var(--muted);line-height:1.7}.panel{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:28px;margin-top:35px}.steps{display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:20px;margin-bottom:25px;font-size:12px;color:var(--muted);font-weight:700}form{display:grid;gap:22px}label{display:flex;flex-direction:column;gap:9px;font-size:13px;font-weight:700}label em,label span{font-style:normal;color:var(--muted);font-weight:400}input:not([type=checkbox]),textarea,select{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font:inherit;font-size:14px}textarea{resize:vertical}.evidence{border:1px solid var(--border);border-radius:8px;padding:15px;background:var(--bg);font-size:13px}.evidence p{color:var(--muted);line-height:1.6}.evidence a{color:var(--accent)}.analyze{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.analyze button{border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);padding:10px 14px;cursor:pointer;font-weight:700}.analyze button:disabled{opacity:.55;cursor:wait}.analyze span{color:var(--muted);font-size:12px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:18px}.confirm{display:flex;flex-direction:row;align-items:flex-start;font-weight:400;line-height:1.5}.confirm input{margin-top:4px}.confirm span{color:var(--text)}.primary{background:var(--text);color:var(--bg);padding:14px 20px;border:0;border-radius:8px;font-weight:800;cursor:pointer;justify-self:start}.hint,.error{font-size:12px;color:var(--muted);margin:0}.error{color:#ef7777}.info{padding:30px 0}.info p{color:var(--muted);line-height:1.7}.info a{color:var(--accent)}@media(max-width:640px){.panel{padding:18px}.fields{grid-template-columns:1fr}}
+</style>

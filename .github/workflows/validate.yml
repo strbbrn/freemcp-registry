@@ -1,0 +1,29 @@
+name: Validate FreeMCP
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/freemcp-v2-foundation
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: Astro production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Compile production site
+        run: npm run build
+      - name: Verify generated submission page
+        run: test -f dist/submit/index.html || test -f dist/submit.html
