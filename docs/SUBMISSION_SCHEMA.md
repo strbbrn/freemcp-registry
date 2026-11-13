@@ -1,11 +1,11 @@
 # FreeMCP 2.0 submission contract (proposal v1)
 
-This document describes the proposed maintainer-authored `freemcp.json` manifest. **Automatic manifest discovery and publishing are not implemented yet.** For now, submit through `/submit`, which prepares a GitHub issue for human review.
+This document describes the proposed maintainer-authored `freemcp.json` manifest. **Client-side root-manifest discovery is implemented in the submission form; automated publishing is not implemented.** For now, submit through `/submit`, which prepares a GitHub issue for human review.
 
 ## Submission options
 
 1. **Guided form**: enter repository URL and project details at `/submit`; the form opens a prefilled GitHub issue. No server-side account, extraction, or publication is performed.
-2. **Optional future manifest**: maintain `freemcp.json` in the repository root, then submit the repository URL. The ingestion workflow will be added in a later milestone.
+2. **Optional future manifest**: maintain `freemcp.json` in the repository root, then submit the repository URL. The submission form reads and validates the root manifest from public GitHub repositories, but does not execute code or publish listings.
 
 ## Proposed manifest
 
@@ -45,7 +45,7 @@ Maintainer-supplied information is **not** a FreeMCP security certification. Ins
 
 ## Future implementation milestones
 
-- Validate JSON manifests with a strict schema and reject unsafe fields.
+- Strengthen manifest validation with a shared strict schema, secret scanning, and provenance checks.
 - Fetch and parse repository metadata in an isolated, rate-limited worker with no execution of repository code.
 - Open or update a reviewable pull request only after human approval.
 - Render server pages from normalized metadata, replacing per-server hardcoded Astro components.
