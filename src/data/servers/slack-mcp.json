@@ -1,0 +1,17 @@
+{
+  "id": "slack-mcp",
+  "name": "Slack MCP Server",
+  "description": "Send messages, read channels, manage workspaces, and search Slack history. Lets orchestration agents deliver alerts, status updates, and incident notifications into team communication channels.",
+  "githubUrl": "https://github.com/slackapi/slack-mcp-plugin",
+  "author": "slackapi",
+  "category": "Communication",
+  "stars": 18400,
+  "tags": [
+    "slack",
+    "notifications",
+    "alerts",
+    "incident-response",
+    "langgraph"
+  ],
+  "featured": false
+}
