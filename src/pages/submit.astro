@@ -24,7 +24,7 @@ const evidenceLink=document.querySelector<HTMLAnchorElement>('#evidence-link');
 const securityPanel=document.querySelector<HTMLElement>('#security-panel');
 const securityMessage=document.querySelector<HTMLElement>('#security-message');
 let repoFlags:string[]=[];
-const secretPattern=/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\\s*[:=]\\s*["']?[A-Za-z0-9_+/.=-]{12,})/i;
+const secretPattern=/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\s*[:=]\s*["']?[A-Za-z0-9_+/.=-]{12,})/i;
 const securityHints=(value:string)=>{const flags:string[]=[];const text=value.toLowerCase();if(text.includes('curl ')&&text.includes('| bash')||text.includes('wget ')&&text.includes('| sh'))flags.push('Remote shell installation requires manual review');if(text.includes('sudo ')||text.includes('chmod 777')||text.includes('--privileged'))flags.push('Elevated privileges or broad filesystem permissions mentioned');if(text.includes('rm -rf')||text.includes('invoke-expression'))flags.push('Potentially destructive or dynamic command mentioned');return flags;};
 const allowedCategories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
 const safeText=(v:unknown,max:number)=>typeof v==='string'?v.trim().slice(0,max):'';
@@ -85,7 +85,7 @@ analyze?.addEventListener('click',async()=>{
     if(manifest.category)category.value=String(manifest.category);
     if(manifest.transport)transport.value=String(manifest.transport);
     if(isRecord(manifest.installation)&&!installation.value.trim())installation.value='Documented command (review before running): '+JSON.stringify({command:manifest.installation.command,args:manifest.installation.args});
-    if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=manifest.permissions.join('\\n');
+    if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=manifest.permissions.join(String.fromCharCode(10));
     source='Valid freemcp.json manifest found. Fields are maintainer-provided, not independently verified.';
     sourceUrl=canonical+'/blob/'+encodeURIComponent(String(metadata.default_branch||'main'))+'/freemcp.json';
    }else if(manifestResponse.status!==404){source='Repository loaded; manifest could not be retrieved (GitHub HTTP '+manifestResponse.status+').';}
@@ -97,7 +97,7 @@ analyze?.addEventListener('click',async()=>{
     const readme=await readmeResponse.text();
     if(readme.length<=120000){
      repoFlags.push(...securityHints(readme));
-     const headings=readme.split('\\n').map(line=>line.trim()).filter(line=>/^#{1,4}\\s+/.test(line)).map(line=>line.replace(/^#+\\s+/,'').slice(0,80)).slice(0,24);
+     const headings=readme.split(String.fromCharCode(10)).map(line=>line.trim()).filter(line=>/^#{1,4}\s+/.test(line)).map(line=>line.replace(/^#+\s+/,'').slice(0,80)).slice(0,24);
      const matched=headings.filter(h=>/install|setup|configur|permission|security|tool|usage/i.test(h));
      if(matched.length){
       source+=' README sections found: '+matched.join(', ')+'. Review the README manually; no commands were imported.';
