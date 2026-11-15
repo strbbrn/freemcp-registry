@@ -30,7 +30,7 @@ test('All original public detail-page slugs are preserved', () => {
   const current=new Set(records.map(x=>x.server.id));
   for (const item of baseline) assert.ok(current.has(item.id),'missing /servers/'+item.id);
 });
-import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent, validateSubmission } from '../src/lib/submission.mjs';
+import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent, validateSubmission, validateDocumentationUrl } from '../src/lib/submission.mjs';
 const valid={repository:'https://github.com/example/repo',name:'Example MCP',category:'Development',description:'Example description',transport:'stdio',docs:'',installation:'npm install example',permissions:'read-only'};
 test('Reject credential strings and dangerous install commands',()=>{
   for(const credential of ['password=abcdefghijklmnop','api_key: abcdefghijklmnop','ghp_abcdefghijklmnopqrstuvwxyz123456']) {
@@ -52,4 +52,18 @@ test('Issue content contains submitted values and manual review checklist',()=>{
   const body=issueContent(valid,['Manual review required']);
   for(const value of [valid.repository,valid.name,valid.description,valid.installation,valid.permissions,'Manual review required','Approve or reject submission']) assert.ok(body.includes(value),value);
   assert.ok(body.includes('Maintainer confirmation'));
+});
+
+test('Reject embedded credentials in repository and documentation URLs before issue creation',()=>{
+  const badRepos=['https://user:password@github.com/owner/repo','https://user@github.com/owner/repo','https://:password@github.com/owner/repo','https://user:p%40ssword@github.com/owner/repo'];
+  for(const repository of badRepos){
+    assert.throws(()=>parseRepository(repository),/Invalid GitHub repository URL/);
+    assert.throws(()=>validateSubmission({...valid,repository}));
+  }
+  const badDocs=['https://user:password@example.com/docs','https://user@example.com/docs','https://:password@example.com/docs','http://example.com/docs'];
+  for(const docs of badDocs){
+    assert.throws(()=>validateDocumentationUrl(docs));
+    assert.throws(()=>validateSubmission({...valid,docs}));
+  }
+  assert.doesNotThrow(()=>validateSubmission({...valid,docs:'https://example.com/docs'}));
 });
