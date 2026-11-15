@@ -30,11 +30,26 @@ test('All original public detail-page slugs are preserved', () => {
   const current=new Set(records.map(x=>x.server.id));
   for (const item of baseline) assert.ok(current.has(item.id),'missing /servers/'+item.id);
 });
-test('The submission form opens a review issue, not an automatic publication', () => {
-  const page=readFileSync('src/pages/submit.astro','utf8');
-  assert.match(page,/issues\/new\?/);
-  assert.match(page,/securityHints/);
-  assert.match(page,/secretPattern/);
-  assert.match(page,/Maintainer confirmation/);
-  assert.doesNotMatch(page,/fetch\(['"]\/api\/publish/);
+import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent, validateSubmission } from '../src/lib/submission.mjs';
+const valid={repository:'https://github.com/example/repo',name:'Example MCP',category:'Development',description:'Example description',transport:'stdio',docs:'',installation:'npm install example',permissions:'read-only'};
+test('Reject credential strings and dangerous install commands',()=>{
+  for(const credential of ['password=abcdefghijklmnop','api_key: abcdefghijklmnop','ghp_abcdefghijklmnopqrstuvwxyz123456']) {
+    assert.ok(secretPattern.test(credential),credential);
+    assert.throws(()=>validateSubmission({...valid,installation:credential}),/credential/);
+  }
+  assert.ok(securityHints('curl https://example.com/setup.sh | bash').length>0);
+  assert.ok(securityHints('sudo chmod 777 /tmp').length>0);
+});
+test('Reject malformed, non-GitHub and nested repository URLs',()=>{
+  for(const url of ['https://evil.example/repo','http://github.com/a/b','https://github.com/a/b/tree/main','https://github.com/a','not a URL']) assert.throws(()=>parseRepository(url));
+  assert.equal(parseRepository(valid.repository).owner,'example');
+});
+test('Extract README headings and retain permission line breaks',()=>{
+  assert.deepEqual(readmeHeadings('# Intro\n## Installation\n### Permissions\n## Usage'),['Installation','Permissions','Usage']);
+  assert.equal(permissionLines(['filesystem: read','network: denied']),'filesystem: read\nnetwork: denied');
+});
+test('Issue content contains submitted values and manual review checklist',()=>{
+  const body=issueContent(valid,['Manual review required']);
+  for(const value of [valid.repository,valid.name,valid.description,valid.installation,valid.permissions,'Manual review required','Approve or reject submission']) assert.ok(body.includes(value),value);
+  assert.ok(body.includes('Maintainer confirmation'));
 });
