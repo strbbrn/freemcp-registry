@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import registry from '../data/registry.json';
+import { getServers } from '../lib/registry';
+const registry = getServers();
 
 const categories = ['All', ...new Set(registry.map((s) => s.category))].sort((a, b) =>
   a === 'All' ? -1 : b === 'All' ? 1 : a.localeCompare(b)
