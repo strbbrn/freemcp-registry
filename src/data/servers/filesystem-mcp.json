@@ -1,0 +1,17 @@
+{
+  "id": "filesystem-mcp",
+  "name": "Filesystem MCP Server",
+  "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files — with sandboxed directory restrictions for safe autonomous file operations.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+  "author": "modelcontextprotocol",
+  "category": "Utilities",
+  "stars": 18400,
+  "tags": [
+    "filesystem",
+    "files",
+    "io",
+    "sandbox",
+    "crewai"
+  ],
+  "featured": false
+}
