@@ -1,0 +1,17 @@
+{
+  "id": "google-maps-mcp",
+  "name": "Google Maps API MCP",
+  "description": "Provides agents with geo-location, search, mapping, and direction calculations using the Google Maps platform APIs. Ideal for travel and logistics agent routing.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/google-maps",
+  "author": "modelcontextprotocol",
+  "category": "Cloud",
+  "stars": 18400,
+  "tags": [
+    "google-maps",
+    "maps",
+    "location",
+    "routing",
+    "geo"
+  ],
+  "featured": false
+}
