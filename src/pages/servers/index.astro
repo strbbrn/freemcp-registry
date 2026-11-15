@@ -1,6 +1,6 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
-import {getServers, getCategories, validateRegistry} from '../lib/registry';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import {getServers, getCategories, validateRegistry} from '../../lib/registry';
 const errors=validateRegistry();
 if(errors.length)throw new Error(errors.join('; '));
 const servers=getServers().map(s=>({id:s.id,name:s.name,description:s.description,category:s.category,tags:s.tags,author:s.author}));
