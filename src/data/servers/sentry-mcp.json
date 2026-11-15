@@ -1,0 +1,17 @@
+{
+  "id": "sentry-mcp",
+  "name": "Sentry Error Analyzer",
+  "description": "Interface with Sentry to retrieve application issues, stack traces, and release logs. Enables automated debugging agents to discover and analyze production errors.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sentry",
+  "author": "modelcontextprotocol",
+  "category": "DevOps",
+  "stars": 18400,
+  "tags": [
+    "sentry",
+    "errors",
+    "debugging",
+    "logs",
+    "monitoring"
+  ],
+  "featured": false
+}
