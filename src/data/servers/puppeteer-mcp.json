@@ -1,0 +1,17 @@
+{
+  "id": "puppeteer-mcp",
+  "name": "Puppeteer MCP Server",
+  "description": "Headless browser automation through MCP. Capture screenshots, fill forms, scrape dynamic pages, and automate web interactions — essential for agents that need to test or monitor web applications.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/puppeteer",
+  "author": "modelcontextprotocol",
+  "category": "Utilities",
+  "stars": 18400,
+  "tags": [
+    "puppeteer",
+    "browser",
+    "scraping",
+    "automation",
+    "testing"
+  ],
+  "featured": false
+}
