@@ -25,6 +25,10 @@ jobs:
         run: npm ci
       - name: Verify migrated server metadata
         run: node scripts/validate-server-migration.mjs
+      - name: Run registry regression tests
+        run: node --test tests/*.test.mjs
+      - name: Enforce dependency security audit
+        run: npm audit --audit-level=low
       - name: Compile production site
         run: npm run build
       - name: Verify generated submission page
