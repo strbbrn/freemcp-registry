@@ -1,6 +1,6 @@
 # FreeMCP registry metadata and verification
 
-The existing `src/data/registry.json` remains the source of truth for the static catalogue during Milestone 1. Its entries provide discovery metadata only; descriptions, star counts and tags should not be interpreted as independently verified facts.
+Each MCP server now has its own source-of-truth record at `src/data/servers/<id>.json`. `src/lib/registry.ts` loads these files at build time, and the shared `src/pages/servers/[slug].astro` route generates detail pages without creating individual page implementations. The original `src/data/registry.json` is retained only as a migration baseline for regression checks, not for rendering. Run `node scripts/validate-server-migration.mjs` to verify existing entries were copied without changes. To add a new server, create a new JSON file in `src/data/servers/` with a unique slug ID; do not edit the legacy catalogue. Entries provide discovery metadata only; descriptions, star counts and tags are not independently verified.
 
 ## Validation
 
