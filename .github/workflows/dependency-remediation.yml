@@ -20,7 +20,7 @@ jobs:
       - name: Install existing lockfile
         run: npm ci
       - name: Apply compatible dependency fixes
-        run: npm audit fix
+        run: npm audit fix || echo 'Some advisories require a major upgrade; continuing candidate evaluation'
       - name: Upgrade Astro to patched major release
         run: npm install astro@7.4.12 --save-exact
       - name: Compile candidate
