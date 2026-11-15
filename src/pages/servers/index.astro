@@ -19,6 +19,8 @@ const categories=getCategories();
 </section>
 <script define:vars={{servers}}>
 const size=24;
+let apiEnabled=true;
+let requestNumber=0;
 const search=document.getElementById('registry-query');
 const category=document.getElementById('registry-category');
 const sort=document.getElementById('registry-sort');
@@ -33,19 +35,35 @@ category.value=params.get('category')||'';
 sort.value=params.get('sort')==='category'?'category':'name';
 let page=Math.max(1,Number.parseInt(params.get('page')||'1',10)||1);
 function element(tag,text,className){const node=document.createElement(tag);if(text!==undefined)node.textContent=text;if(className)node.className=className;return node;}
-function render(){
+async function render(){
  const q=search.value.trim().toLocaleLowerCase();
- const filtered=servers.filter(s=>(!category.value||s.category===category.value)&&(!q||[s.name,s.description,s.category,s.author,...s.tags].join(' ').toLocaleLowerCase().includes(q)));
+ let filtered=servers.filter(s=>(!category.value||s.category===category.value)&&(!q||[s.name,s.description,s.category,s.author,...s.tags].join(' ').toLocaleLowerCase().includes(q)));
  filtered.sort((a,b)=>sort.value==='category'?a.category.localeCompare(b.category)||a.name.localeCompare(b.name):a.name.localeCompare(b.name));
- const pages=Math.max(1,Math.ceil(filtered.length/size));page=Math.min(Math.max(1,page),pages);
+ let total=filtered.length;
+ let pages=Math.max(1,Math.ceil(total/size));page=Math.min(Math.max(1,page),pages);
  const url=new URL(location.href);for(const key of ['q','category','sort','page'])url.searchParams.delete(key);
  if(search.value.trim())url.searchParams.set('q',search.value.trim());
  if(category.value)url.searchParams.set('category',category.value);
  if(sort.value!=='name')url.searchParams.set('sort',sort.value);
  if(page>1)url.searchParams.set('page',String(page));
  history.replaceState(null,'',url);
+ const currentRequest=++requestNumber;
+ let visible=filtered.slice((page-1)*size,page*size);
+ if(apiEnabled){
+  try{
+   const query=new URLSearchParams({page:String(page),sort:sort.value});
+   if(search.value.trim())query.set('q',search.value.trim());
+   if(category.value)query.set('category',category.value);
+   const response=await fetch('/api/servers?'+query);
+   if(!response.ok)throw new Error('API unavailable');
+   const data=await response.json();
+   if(currentRequest!==requestNumber)return;
+   visible=data.servers;total=data.total;pages=data.pages;page=data.page;
+  }catch{apiEnabled=false;}
+ }
+ if(currentRequest!==requestNumber)return;
  results.replaceChildren();
- for(const s of filtered.slice((page-1)*size,page*size)){
+ for(const s of visible){
   const article=element('article',undefined,'result-card');
   const meta=element('span',s.category,'result-meta');
   const title=element('h2');const link=element('a',s.name);link.href='/servers/'+encodeURIComponent(s.id);title.append(link);
@@ -53,8 +71,8 @@ function render(){
   const author=element('small','by '+s.author);
   article.append(meta,title,desc,author);results.append(article);
  }
- if(!filtered.length)results.append(element('p','No matching servers. Try a different search or category.'));
- count.textContent=filtered.length+' matching servers · showing '+(filtered.length?(page-1)*size+1:0)+'–'+Math.min(page*size,filtered.length);
+ if(!total)results.append(element('p','No matching servers. Try a different search or category.'));
+ count.textContent=total+' matching servers · showing '+(total?(page-1)*size+1:0)+'–'+Math.min(page*size,total);
  indicator.textContent='Page '+page+' of '+pages;
  previous.disabled=page<=1;next.disabled=page>=pages;
 }
