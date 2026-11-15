@@ -1,5 +1,13 @@
-import registry from '../data/registry.json';
-export type RegistryServer = (typeof registry)[number];
+import type legacyRegistry from '../data/registry.json';
+
+export type RegistryServer = (typeof legacyRegistry)[number];
+
+// Each MCP server is maintained independently; Astro/Vite bundles these JSON records at build time.
+const modules = import.meta.glob<{ default: RegistryServer }>('../data/servers/*.json', { eager: true });
+const registry: RegistryServer[] = Object.values(modules).map(module => module.default);
+const originalOrder = ["sqlite-mcp","github-mcp","filesystem-mcp","brave-search-mcp","shodan-mcp","nmap-mcp","postgres-mcp","docker-mcp","semgrep-mcp","slack-mcp","puppeteer-mcp","aws-kb-mcp","sequential-thinking-mcp","memory-mcp","fetch-mcp","notion-mcp","linear-mcp","gitlab-mcp","sentry-mcp","google-maps-mcp","remotify-mcp"];
+registry.sort((a,b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id));
+
 export function getServers(): RegistryServer[] { return registry; }
 export function getServer(id: string): RegistryServer | undefined { return registry.find(server => server.id === id); }
 export function getCategories(): string[] { return [...new Set(registry.map(server => server.category))].sort(); }
