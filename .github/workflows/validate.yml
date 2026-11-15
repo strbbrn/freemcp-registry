@@ -23,6 +23,8 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Verify migrated server metadata
+        run: node scripts/validate-server-migration.mjs
       - name: Compile production site
         run: npm run build
       - name: Verify generated submission page
