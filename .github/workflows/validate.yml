@@ -26,11 +26,13 @@ jobs:
       - name: Verify migrated server metadata
         run: node scripts/validate-server-migration.mjs
       - name: Run registry regression tests
-        run: node --test tests/*.test.mjs
+        run: node --test tests/registry.test.mjs
       - name: Enforce dependency security audit
         run: npm audit --audit-level=low
       - name: Compile production site
         run: npm run build
+      - name: Smoke-test generated pages and accessibility landmarks
+        run: node --test tests/build-smoke.test.mjs
       - name: Verify generated submission page
         run: test -f dist/submit/index.html || test -f dist/submit.html
       - name: Record full dependency audit (triage mode)
