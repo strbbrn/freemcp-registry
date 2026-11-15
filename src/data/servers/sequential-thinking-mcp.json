@@ -1,0 +1,17 @@
+{
+  "id": "sequential-thinking-mcp",
+  "name": "Sequential Thinking MCP",
+  "description": "Structured step-by-step thinking and planning capabilities. Allows agents to break down complex tasks, plan execution paths, evaluate hypotheses, and dynamically adjust reasoning strategies.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequential-thinking",
+  "author": "modelcontextprotocol",
+  "category": "Utilities",
+  "stars": 18400,
+  "tags": [
+    "thinking",
+    "reasoning",
+    "planning",
+    "logic",
+    "agents"
+  ],
+  "featured": true
+}
