@@ -15,7 +15,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <div class="info"><h2>Prefer a manifest?</h2><p>Maintainers can describe their server in a versioned <code>freemcp.json</code> file. The analyzer can now read a valid root manifest from a public GitHub repository; all details still require human review.</p><a href="https://github.com/strbbrn/freemcp-registry/blob/feature/freemcp-v2-foundation/docs/SUBMISSION_SCHEMA.md" target="_blank" rel="noopener noreferrer">Read the proposed submission schema ↗</a></div></section>
 </BaseLayout>
 <script>
-import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent } from '../lib/submission.mjs';
+import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent, validateDocumentationUrl } from '../lib/submission.mjs';
 const form=document.querySelector<HTMLFormElement>('#submit-server');
 const analyze=document.querySelector<HTMLButtonElement>('#analyze-repo');
 const status=document.querySelector<HTMLElement>('#analyze-status');
@@ -120,9 +120,9 @@ form?.addEventListener('submit',(event)=>{
  const value=(key:string)=>String(data.get(key)||'').trim();
  let repo:URL;
  try{repo=parseRepository(value('repository')).url;}
- catch{error.hidden=false;error.textContent='Enter a GitHub repository URL such as https://github.com/owner/repository (not a subdirectory).';return;}
+ catch{error.hidden=false;error.textContent='Enter a GitHub repository URL without a username, password, or subdirectory, such as https://github.com/owner/repository.';return;}
  const docs=value('docs');
- if(docs){try{const u=new URL(docs);if(u.protocol!=='https:')throw new Error('invalid');}catch{error.hidden=false;error.textContent='Documentation URL must be a valid HTTPS link.';return;}}
+ try{validateDocumentationUrl(docs);}catch{error.hidden=false;error.textContent='Documentation URL must be HTTPS and must not contain a username or password.';return;}
  const submittedText=[value('name'),value('description'),value('installation'),value('permissions')].join(String.fromCharCode(10));
  if(secretPattern.test(submittedText)){error.hidden=false;error.textContent='Possible credential or private key detected. Remove secrets before submitting. This check is not exhaustive.';return;}
  const finalFlags=Array.from(new Set([...repoFlags,...securityHints(submittedText)]));
