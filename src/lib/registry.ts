@@ -6,7 +6,7 @@ export type RegistryServer = (typeof legacyRegistry)[number];
 const modules = import.meta.glob<{ default: RegistryServer }>('../data/servers/*.json', { eager: true });
 const registry: RegistryServer[] = Object.values(modules).map(module => module.default);
 const originalOrder = ["sqlite-mcp","github-mcp","filesystem-mcp","brave-search-mcp","shodan-mcp","nmap-mcp","postgres-mcp","docker-mcp","semgrep-mcp","slack-mcp","puppeteer-mcp","aws-kb-mcp","sequential-thinking-mcp","memory-mcp","fetch-mcp","notion-mcp","linear-mcp","gitlab-mcp","sentry-mcp","google-maps-mcp","remotify-mcp"];
-registry.sort((a,b) => originalOrder.indexOf(a.id) - originalOrder.indexOf(b.id));
+registry.sort((a,b) => { const ai = originalOrder.indexOf(a.id); const bi = originalOrder.indexOf(b.id); return (ai < 0 ? Number.MAX_SAFE_INTEGER : ai) - (bi < 0 ? Number.MAX_SAFE_INTEGER : bi) || a.id.localeCompare(b.id); });
 
 export function getServers(): RegistryServer[] { return registry; }
 export function getServer(id: string): RegistryServer | undefined { return registry.find(server => server.id === id); }
