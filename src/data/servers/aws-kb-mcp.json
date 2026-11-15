@@ -1,0 +1,17 @@
+{
+  "id": "aws-kb-mcp",
+  "name": "AWS Knowledge Base MCP",
+  "description": "Retrieval-Augmented Generation (RAG) against Amazon Bedrock Knowledge Bases. Provides agents with semantic search over enterprise document stores, FAQs, and internal wikis stored in AWS.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/aws-kb-retrieval-server",
+  "author": "modelcontextprotocol",
+  "category": "Cloud",
+  "stars": 18400,
+  "tags": [
+    "aws",
+    "bedrock",
+    "rag",
+    "knowledge-base",
+    "langchain"
+  ],
+  "featured": false
+}
