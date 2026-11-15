@@ -1,0 +1,17 @@
+{
+  "id": "semgrep-mcp",
+  "name": "Semgrep MCP Server",
+  "description": "SAST (Static Application Security Testing) via Semgrep rules directly in MCP. Agents can scan codebases for security anti-patterns, secrets, and vulnerabilities as part of automated code review pipelines.",
+  "githubUrl": "https://github.com/semgrep/semgrep",
+  "author": "semgrep",
+  "category": "Security",
+  "stars": 156,
+  "tags": [
+    "sast",
+    "semgrep",
+    "code-scanning",
+    "devsecops",
+    "appsec"
+  ],
+  "featured": false
+}
