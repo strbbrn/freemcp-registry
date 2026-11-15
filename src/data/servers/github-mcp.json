@@ -1,0 +1,17 @@
+{
+  "id": "github-mcp",
+  "name": "GitHub MCP Server",
+  "description": "Interact with GitHub APIs through MCP. Manage repositories, issues, pull requests, code search, and file operations — giving autonomous agents full-cycle software development capabilities.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/github",
+  "author": "modelcontextprotocol",
+  "category": "Development",
+  "stars": 18400,
+  "tags": [
+    "github",
+    "git",
+    "devops",
+    "issues",
+    "pull-requests"
+  ],
+  "featured": true
+}
