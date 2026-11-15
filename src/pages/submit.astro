@@ -15,6 +15,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <div class="info"><h2>Prefer a manifest?</h2><p>Maintainers can describe their server in a versioned <code>freemcp.json</code> file. The analyzer can now read a valid root manifest from a public GitHub repository; all details still require human review.</p><a href="https://github.com/strbbrn/freemcp-registry/blob/feature/freemcp-v2-foundation/docs/SUBMISSION_SCHEMA.md" target="_blank" rel="noopener noreferrer">Read the proposed submission schema ↗</a></div></section>
 </BaseLayout>
 <script>
+import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent } from '../lib/submission.mjs';
 const form=document.querySelector<HTMLFormElement>('#submit-server');
 const analyze=document.querySelector<HTMLButtonElement>('#analyze-repo');
 const status=document.querySelector<HTMLElement>('#analyze-status');
@@ -24,8 +25,6 @@ const evidenceLink=document.querySelector<HTMLAnchorElement>('#evidence-link');
 const securityPanel=document.querySelector<HTMLElement>('#security-panel');
 const securityMessage=document.querySelector<HTMLElement>('#security-message');
 let repoFlags:string[]=[];
-const secretPattern=/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\s*[:=]\s*["']?[A-Za-z0-9_+/.=-]{12,})/i;
-const securityHints=(value:string)=>{const flags:string[]=[];const text=value.toLowerCase();if(text.includes('curl ')&&text.includes('| bash')||text.includes('wget ')&&text.includes('| sh'))flags.push('Remote shell installation requires manual review');if(text.includes('sudo ')||text.includes('chmod 777')||text.includes('--privileged'))flags.push('Elevated privileges or broad filesystem permissions mentioned');if(text.includes('rm -rf')||text.includes('invoke-expression'))flags.push('Potentially destructive or dynamic command mentioned');return flags;};
 const allowedCategories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
 const safeText=(v:unknown,max:number)=>typeof v==='string'?v.trim().slice(0,max):'';
 const isRecord=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==null&&!Array.isArray(v);
@@ -42,10 +41,7 @@ analyze?.addEventListener('click',async()=>{
  const input=form.elements.namedItem('repository') as HTMLInputElement;
  let owner:string,repo:string;
  try{
-  const url=new URL(input.value.trim());
-  const parts=url.pathname.split('/').filter(Boolean);
-  if(url.protocol!=='https:'||url.hostname.toLowerCase()!=='github.com'||parts.length!==2||!parts.every(p=>/^[a-zA-Z0-9_.-]+$/.test(p)))throw new Error('invalid');
-  [owner,repo]=parts;
+  ({owner,repo}=parseRepository(input.value));
  }catch{status.textContent='Enter a valid GitHub repository URL first.';return;}
  analyze.disabled=true;status.textContent='Reading public GitHub repository metadata…';
  try{
@@ -85,7 +81,7 @@ analyze?.addEventListener('click',async()=>{
     if(manifest.category)category.value=String(manifest.category);
     if(manifest.transport)transport.value=String(manifest.transport);
     if(isRecord(manifest.installation)&&!installation.value.trim())installation.value='Documented command (review before running): '+JSON.stringify({command:manifest.installation.command,args:manifest.installation.args});
-    if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=manifest.permissions.join(String.fromCharCode(10));
+    if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=permissionLines(manifest.permissions);
     source='Valid freemcp.json manifest found. Fields are maintainer-provided, not independently verified.';
     sourceUrl=canonical+'/blob/'+encodeURIComponent(String(metadata.default_branch||'main'))+'/freemcp.json';
    }else if(manifestResponse.status!==404){source='Repository loaded; manifest could not be retrieved (GitHub HTTP '+manifestResponse.status+').';}
@@ -97,8 +93,8 @@ analyze?.addEventListener('click',async()=>{
     const readme=await readmeResponse.text();
     if(readme.length<=120000){
      repoFlags.push(...securityHints(readme));
-     const headings=readme.split(String.fromCharCode(10)).map(line=>line.trim()).filter(line=>/^#{1,4}\s+/.test(line)).map(line=>line.replace(/^#+\s+/,'').slice(0,80)).slice(0,24);
-     const matched=headings.filter(h=>/install|setup|configur|permission|security|tool|usage/i.test(h));
+     const headings=readmeHeadings(readme);
+     const matched=headings;
      if(matched.length){
       source+=' README sections found: '+matched.join(', ')+'. Review the README manually; no commands were imported.';
       if(sourceUrl===canonical)sourceUrl=canonical+'#readme';
@@ -123,15 +119,14 @@ form?.addEventListener('submit',(event)=>{
  const data=new FormData(form);
  const value=(key:string)=>String(data.get(key)||'').trim();
  let repo:URL;
- try{repo=new URL(value('repository'));if(repo.protocol!=='https:'||repo.hostname.toLowerCase()!=='github.com'||repo.pathname.split('/').filter(Boolean).length!==2)throw new Error('invalid');}
+ try{repo=parseRepository(value('repository')).url;}
  catch{error.hidden=false;error.textContent='Enter a GitHub repository URL such as https://github.com/owner/repository (not a subdirectory).';return;}
  const docs=value('docs');
  if(docs){try{const u=new URL(docs);if(u.protocol!=='https:')throw new Error('invalid');}catch{error.hidden=false;error.textContent='Documentation URL must be a valid HTTPS link.';return;}}
  const submittedText=[value('name'),value('description'),value('installation'),value('permissions')].join(String.fromCharCode(10));
  if(secretPattern.test(submittedText)){error.hidden=false;error.textContent='Possible credential or private key detected. Remove secrets before submitting. This check is not exhaustive.';return;}
  const finalFlags=Array.from(new Set([...repoFlags,...securityHints(submittedText)]));
- const fields=[['Repository',repo.toString()],['Name',value('name')],['Category',value('category')],['Description',value('description')],['Transport',value('transport')],['Documentation',docs||'Not supplied'],['Installation evidence / instructions',value('installation')||'Not supplied'],['Permissions / security considerations',value('permissions')||'Not supplied'],['Automated review flags (unverified)',finalFlags.length?finalFlags.join('; '):'No flags from limited heuristic checks; manual security review required']];
- const body='## MCP server submission\n\n'+fields.map(([key,v])=>'### '+key+'\n'+v).join('\n\n')+'\n\n### Maintainer confirmation\nI confirm I am authorized to submit this listing and have not included credentials.\n\n### Review checklist (FreeMCP maintainers)\n- [ ] Confirm repository and ownership claims\n- [ ] Review documentation and installation commands\n- [ ] Check permissions, security concerns, and spam\n- [ ] Validate compatibility claims before publication\n- [ ] Approve or reject submission';
+ const body=issueContent({repository:repo.toString(),name:value('name'),category:value('category'),description:value('description'),transport:value('transport'),docs,installation:value('installation'),permissions:value('permissions')},finalFlags);
  const title='[MCP Submission] '+value('name');
  const url='https://github.com/strbbrn/freemcp-registry/issues/new?'+new URLSearchParams({title,body}).toString();
  error.hidden=true;
