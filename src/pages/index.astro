@@ -1,7 +1,10 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import ServerDirectory from '../components/registry/ServerDirectory.astro';
+import { getServers, getCategories } from '../lib/registry';
 import { validateRegistry } from '../lib/registry';
+const featured = getServers().slice(0,6);
+const totalServers=getServers().length;
+const totalCategories=getCategories().length;
 const errors = validateRegistry();
 if (errors.length) throw new Error('Invalid MCP registry: ' + errors.join('; '));
 ---
@@ -12,7 +15,7 @@ if (errors.length) throw new Error('Invalid MCP registry: ' + errors.join('; '))
     <p>Explore a curated registry of open-source MCP servers, inspect installation guidance, and submit projects for community review.</p>
     <div class="hero-actions"><a class="submit-link" href="#registry">Explore servers</a><a class="submit-link secondary" href="/submit">Submit a server</a></div>
   </section>
-  <ServerDirectory />
+  <section class="container featured" id="registry"><div class="section-head"><div><div class="eyebrow">DISCOVER</div><h2>Explore the registry</h2><p>{totalServers} servers across {totalCategories} categories</p></div><a class="submit-link" href="/servers">Browse all servers →</a></div><div class="featured-grid">{featured.map(server=><article class="featured-card"><span>{server.category}</span><h3><a href={'/servers/'+server.id}>{server.name}</a></h3><p>{server.description}</p></article>)}</div></section><section class="container getting-started" id="how-it-works"><h2>Getting started</h2><p>Browse the registry, review a server's documentation and security considerations, then configure your MCP client using maintainer-backed instructions.</p><a href="/servers">Find an MCP server →</a></section>
 </BaseLayout>
 <style>
 .hero{padding:96px 0 76px;border-bottom:1px solid var(--border)}
@@ -24,4 +27,4 @@ h1 span{color:var(--muted)}
 .hero-actions a{display:inline-flex;padding:12px 18px;text-decoration:none}
 .secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
 @media(max-width:650px){.hero{padding:64px 0 55px}}
-</style>
+.featured{padding:64px 0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:25px}.section-head h2,.getting-started h2{font-size:28px;margin:10px 0}.section-head p,.getting-started p{color:var(--muted)}.featured-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}.featured-card span{font-size:12px;color:var(--accent)}.featured-card h3{margin:15px 0;font-size:18px}.featured-card h3 a{text-decoration:none}.featured-card p{font-size:13px;line-height:1.6;color:var(--muted)}.getting-started{padding:50px 0 90px;border-top:1px solid var(--border)}.getting-started p{max-width:650px;line-height:1.7}.getting-started a{color:var(--accent)}</style>
