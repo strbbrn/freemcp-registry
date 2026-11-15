@@ -27,3 +27,19 @@ jobs:
         run: npm run build
       - name: Verify generated submission page
         run: test -f dist/submit/index.html || test -f dist/submit.html
+      - name: Record full dependency audit (triage mode)
+        if: always()
+        run: npm audit --json > audit-full.json || true
+      - name: Record runtime dependency audit (triage mode)
+        if: always()
+        run: npm audit --omit=dev --json > audit-runtime.json || true
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: |
+            audit-full.json
+            audit-runtime.json
+          retention-days: 14
+          if-no-files-found: warn
