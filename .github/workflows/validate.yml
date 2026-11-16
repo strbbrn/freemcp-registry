@@ -26,7 +26,7 @@ jobs:
       - name: Verify migrated server metadata
         run: node scripts/validate-server-migration.mjs
       - name: Run registry regression tests
-        run: node --test tests/registry.test.mjs
+        run: node --test tests/registry.test.mjs tests/d1-api.test.mjs
       - name: Enforce dependency security audit
         run: npm audit --audit-level=low
       - name: Compile production site
