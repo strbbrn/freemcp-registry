@@ -21,6 +21,7 @@ The workflow fetches GitHub star counts for each version-controlled server, writ
 ```bash
 npm ci
 node --test tests/registry.test.mjs tests/d1-api.test.mjs
+node scripts/benchmark-d1.mjs
 npm run build
 node --test tests/build-smoke.test.mjs
 node scripts/sync-github-metadata.mjs --output seed/github-metadata.sql
@@ -35,4 +36,4 @@ node scripts/sync-github-metadata.mjs --output seed/github-metadata.sql
 - `/api/servers?page=2`: should clamp to page 1 with 21 records.
 - To test real pagination, import a **synthetic dataset into a separate test D1 database** and verify 24 records/page across 10,000+ rows; do not pollute the preview or production registry.
 
-The unit tests exercise 10,000-record pagination, bound FTS search parameters, category metadata, missing bindings, and D1-only detail rendering. These are simulated D1 responses, not a measured 10,000-record live load test.
+The unit tests exercise 10,000-record pagination, bound FTS search parameters, category metadata, missing bindings, and D1-only detail rendering. The separate local SQLite/FTS5 benchmark inserts 10,000 rows and checks FTS index consistency, category filtering, and LIMIT/OFFSET pagination. Neither test is a measured Cloudflare D1 remote load test.
