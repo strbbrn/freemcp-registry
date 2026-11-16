@@ -16,7 +16,8 @@ test('Homepage links to dedicated directory and preview retains the registry',()
   assert.match(directory,/registry-category/);
   assert.match(directory,/registry-sort/);
   assert.match(directory,/next-page/);
-  for(const server of servers){assert.ok(directory.includes(server.name),'directory missing '+server.id);assert.ok(preview.includes(server.name),'preview missing '+server.id);}
+  for(const server of servers){assert.ok(!directory.includes(server.description),'directory embeds server data '+server.id);assert.ok(preview.includes(server.name),'preview missing '+server.id);}
+  assert.match(directory,/\/api\/servers/);
 });
 test('Submission and detail pages have navigation and accessible form controls',()=>{
   const submit=page('submit');const detail=page('servers/'+servers[0].id);
