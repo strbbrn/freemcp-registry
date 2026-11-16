@@ -1,8 +1,15 @@
 // Cloudflare Pages Function: bind a D1 database as DB in the preview environment.
-const json = (body, status=200) => new Response(JSON.stringify(body), {status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'public, max-age=30'}});
+const json = (body, status=200) => new Response(JSON.stringify(body), {status,headers:{'content-type':'application/json; charset=utf-8','cache-control':status===200?'public, max-age=30':'no-store'}});
 export async function onRequestGet({request,env}) {
  if (!env.DB) return json({error:'Registry database is not configured'},503);
- const url=new URL(request.url), q=(url.searchParams.get('q')||'').trim().slice(0,120);
+ const url=new URL(request.url);
+ if(url.searchParams.get('meta')==='categories'){
+  try{
+   const rows=await env.DB.prepare('SELECT DISTINCT category FROM servers ORDER BY category COLLATE NOCASE').all();
+   return json({categories:rows.results.map(row=>row.category)});
+  }catch(e){console.error('Registry categories failed',e);return json({error:'Registry categories failed'},500);}
+ }
+ const q=(url.searchParams.get('q')||'').trim().slice(0,120);
  const category=(url.searchParams.get('category')||'').trim().slice(0,100);
  const sort=url.searchParams.get('sort')==='category'?'category':'name';
  const page=Math.min(10000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
