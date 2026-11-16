@@ -27,6 +27,8 @@ jobs:
         run: node scripts/validate-server-migration.mjs
       - name: Run registry regression tests
         run: node --test tests/registry.test.mjs tests/d1-api.test.mjs
+      - name: Verify 10,000-record FTS5 pagination
+        run: node scripts/benchmark-d1.mjs
       - name: Enforce dependency security audit
         run: npm audit --audit-level=low
       - name: Compile production site
