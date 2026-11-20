@@ -1,13 +1,10 @@
-# FreeMCP 2.0 submission contract (proposal v1)
+# FreeMCP 2.0 — freemcp.json v1
 
-This document describes the proposed maintainer-authored `freemcp.json` manifest. **Client-side root-manifest discovery is implemented in the submission form; automated publishing is not implemented.** For now, submit through `/submit`, which prepares a GitHub issue for human review.
+Maintainers may place an optional `freemcp.json` in the **root** of a public GitHub repository. The submission form reads this file, validates its fields, and offers prefilled values for a **human-reviewed GitHub issue**. It does not execute installation commands or automatically publish entries.
 
-## Submission options
+The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/freemcp-v1.schema.json). The submission analyzer uses [src/lib/manifest.mjs](../src/lib/manifest.mjs) to enforce the same field structure and additional safety checks.
 
-1. **Guided form**: enter repository URL and project details at `/submit`; the form opens a prefilled GitHub issue. No server-side account, extraction, or publication is performed.
-2. **Optional future manifest**: maintain `freemcp.json` in the repository root, then submit the repository URL. The submission form reads and validates the root manifest from public GitHub repositories, but does not execute code or publish listings.
-
-## Proposed manifest
+## stdio example
 
 ```json
 {
@@ -15,38 +12,57 @@ This document describes the proposed maintainer-authored `freemcp.json` manifest
   "name": "Example MCP Server",
   "description": "Search example resources.",
   "repository": "https://github.com/example/example-mcp",
-  "category": "Development",
+  "category": "Search",
   "transport": "stdio",
   "installation": {
     "command": "npx",
-    "args": ["-y", "@example/mcp-server"]
+    "args": ["-y", "@example/mcp-server"],
+    "env": {
+      "EXAMPLE_API_KEY": {
+        "required": true,
+        "secret": true,
+        "description": "Provide your own API key; never put its value in this manifest"
+      }
+    }
   },
-  "tools": [
-    { "name": "search", "description": "Search example resources" }
-  ],
-  "permissions": ["read:resources"]
+  "tools": [{"name": "search", "description": "Search example resources"}],
+  "permissions": ["Read access to example resources"]
 }
 ```
 
-### Field rules
+## Remote Streamable HTTP example
 
-- `schemaVersion`: integer `1`.
-- `name`, `description`: required nonempty strings.
-- `repository`: required HTTPS URL to the actual project repository; redirects and ownership claims require review.
-- `category`: one of Development, Database, Security, Search, Productivity, Communication, Cloud, Utilities, Other.
-- `transport`: `stdio`, `http`, `sse`, or `unknown`.
-- `installation`: optional documented command and argument list; no secrets or executable shell interpolation.
-- `tools`: optional list of documented tools; never infer capabilities from marketing text.
-- `permissions`: optional human-readable list of access requirements. Sensitive permissions need explicit review.
+```json
+{
+  "schemaVersion": 1,
+  "name": "Example Remote MCP",
+  "description": "Remote example MCP endpoint.",
+  "repository": "https://github.com/example/remote-mcp",
+  "category": "Development",
+  "transport": "http",
+  "installation": {"endpoint": "https://mcp.example.com/mcp"},
+  "permissions": ["Network access"]
+}
+```
 
-## Evidence and trust
+## Rules
 
-Maintainer-supplied information is **not** a FreeMCP security certification. Install commands must be corroborated against repository documentation. Compatibility is unknown unless documented or tested, and runtime testing must be labeled separately. Never request or store user tokens, private keys, or credentials in submissions. Review external URLs and submitted text as untrusted input.
+- Required: `schemaVersion` (integer 1), `name`, `description`, `repository`, `category`, `transport`.
+- `repository` must identify the same GitHub owner/repository as the analyzed project. Equivalent casing and a trailing slash are accepted by the analyzer; other hosts and nested paths are not.
+- Categories: Development, Database, Security, Search, Productivity, Communication, Cloud, Utilities, Other.
+- Transports: `stdio`, `http` (Streamable HTTP), `sse` (legacy), `unknown`.
+- Optional `installation` uses **either** `command` plus `args` for stdio, **or** HTTPS `endpoint` for remote HTTP/SSE. For `unknown` transport either installation shape is accepted.
+- Optional `env` contains **descriptions** of environment variables, never their actual values. Each entry requires `required` and `secret` booleans and a `description`.
+- Optional `tools` contains up to 50 objects with `name` and `description`. Optional `permissions` contains up to 30 descriptive strings.
+- Unknown properties, malformed structures, and possible embedded credentials are rejected. Secret detection is heuristic, not a guarantee.
+- Metadata, compatibility and installation commands remain **unverified** until a maintainer reviews the upstream evidence. An archived GitHub repository is a review flag, not proof of server lifecycle.
 
-## Future implementation milestones
+## Review process
 
-- Strengthen manifest validation with a shared strict schema, secret scanning, and provenance checks.
-- Fetch and parse repository metadata in an isolated, rate-limited worker with no execution of repository code.
-- Open or update a reviewable pull request only after human approval.
-- Render server pages from normalized metadata, replacing per-server hardcoded Astro components.
-- Add a moderation queue, duplicate detection, ownership verification, and provenance tracking.
+1. Open `/submit` on FreeMCP Preview.
+2. Enter the public GitHub repository URL and click **Analyze GitHub repository**.
+3. Inspect imported metadata, documentation, installation and security flags.
+4. Confirm the details and open a prefilled GitHub issue for human review.
+5. FreeMCP maintainers approve or reject; no automatic publication occurs.
+
+The manifest is a metadata contract, not an executable configuration or security certification. Do not include passwords, tokens, private keys or other secrets.
