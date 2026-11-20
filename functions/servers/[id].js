@@ -16,6 +16,8 @@ export async function onRequestGet(context) {
  try { s = await context.env.DB.prepare('SELECT id,name,description,category,author,tags_json,github_url,stars,details_json FROM servers WHERE id=?').bind(id).first(); }
  catch (error) { console.error('Server detail lookup failed',error); return new Response('Registry temporarily unavailable', {status:503}); }
  if (!s) return new Response('Server not found', {status:404});
+ const reviewStatus = parse(s.details_json || '{}', {}).review?.status;
+ if (reviewStatus === 'pending-publication' || reviewStatus === 'test-only') return new Response('Server not found', {status:404});
  const d = parse(s.details_json || '{}', {});
  const archived = d.lifecycle === 'archived';
  const repo = safeLink(s.github_url);
