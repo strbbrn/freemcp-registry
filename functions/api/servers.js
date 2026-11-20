@@ -13,7 +13,7 @@ export async function onRequestGet({request,env}) {
  const category=(url.searchParams.get('category')||'').trim().slice(0,100);
  const sort=url.searchParams.get('sort')==='category'?'category':'name';
  const page=Math.min(10000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
- const size=24, conditions=[], bindings=[];
+ const size=24, conditions=["COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')"], bindings=[];
  if(category){conditions.push('category = ?');bindings.push(category);}
  if(q){
   // FTS5 tokens are escaped as quoted phrases; no raw user-supplied FTS operators.
