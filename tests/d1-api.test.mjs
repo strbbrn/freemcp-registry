@@ -17,10 +17,12 @@ test('search and category parameters remain bound, not interpolated',async()=>{
  assert.equal(r.status,200);assert.match(db.calls[0].sql,/servers_search MATCH \?/);assert.deepEqual(db.calls[0].args,['Security','"github"* AND "repo"*']);
 });
 test('categories are retrieved from D1',async()=>{const db=database();const r=await onRequestGet({request:new Request('https://preview.example/api/servers?meta=categories'),env:{DB:db}});assert.deepEqual(await r.json(),{categories:['Cloud','Security']});});
-test('D1-only detail pages escape HTML and preserve static pages',async()=>{
- const unchanged=new Response('static guide');
- assert.equal(await (await detail({next:async()=>unchanged})).text(),'static guide');
- const db={prepare(){return {bind(){return this;},async first(){return {name:'<script>alert(1)</script>',description:'Safe & sound',id:'new-mcp',category:'Cloud',author:'<admin>',tags_json:'["<tag>"]',github_url:'https://github.com/example/repo',stars:5};}};}};
- const r=await detail({next:async()=>new Response('not found',{status:404}),params:{id:'new-mcp'},env:{DB:db}});
- assert.equal(r.status,200);const html=await r.text();assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>alert(1)</script>'));assert.ok(html.includes('Safe &amp; sound'));
+test('Every detail page is served from D1 and escapes untrusted data',async()=>{
+ const db={prepare(){return {bind(){return this;},async first(){return {name:'<script>alert(1)</script>',description:'Safe & sound',id:'new-mcp',category:'Cloud',author:'<admin>',tags_json:'["<tag>"]',github_url:'https://github.com/example/repo',stars:5,details_json:JSON.stringify({installations:[{title:'Test',client:'Claude Desktop',config:{mcpServers:{test:{command:'npx',args:['-y','example']}}}}]})};}};}};
+ const r=await detail({params:{id:'new-mcp'},env:{DB:db}});
+ assert.equal(r.status,200);const html=await r.text();assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>alert(1)</script>'));assert.ok(html.includes('Safe &amp; sound'));assert.match(html,/Copy configuration/);
+});
+test('Missing installation details display generic fallback',async()=>{
+ const db={prepare(){return {bind(){return this;},async first(){return {name:'Example',description:'Test',id:'example',category:'Cloud',author:'Author',tags_json:'[]',github_url:'https://github.com/example/repo',stars:0,details_json:'{}'};}};}};
+ const html=await (await detail({params:{id:'example'},env:{DB:db}})).text();assert.match(html,/Installation not yet verified/);
 });
