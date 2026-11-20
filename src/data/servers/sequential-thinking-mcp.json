@@ -13,5 +13,49 @@
     "logic",
     "agents"
   ],
-  "featured": true
+  "featured": true,
+  "details": {
+    "summary": "Maintainer-documented local NPX setup for sequential thinking.",
+    "documentationUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking/README.md",
+    "security": [
+      "Review what information is passed to the server.",
+      "Consult the maintainer documentation for logging behavior."
+    ],
+    "installations": [
+      {
+        "client": "Claude Desktop",
+        "os": "macOS / Linux",
+        "title": "Local NPX",
+        "config": {
+          "mcpServers": {
+            "sequential-thinking": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+              ]
+            }
+          }
+        },
+        "notes": "Requires the supported Node.js runtime."
+      },
+      {
+        "client": "VS Code",
+        "os": "macOS / Linux",
+        "title": "Local NPX",
+        "config": {
+          "servers": {
+            "sequential-thinking": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+              ]
+            }
+          }
+        },
+        "notes": "Requires the supported Node.js runtime."
+      }
+    ]
+  }
 }
