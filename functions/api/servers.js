@@ -27,7 +27,7 @@ export async function onRequestGet({request,env}) {
   const count=await env.DB.prepare('SELECT COUNT(*) AS total FROM servers'+where).bind(...bindings).first();
   const total=count?.total||0,pages=Math.max(1,Math.ceil(total/size)),current=Math.min(page,pages);
   const order=sort==='category'?'category COLLATE NOCASE, name COLLATE NOCASE, id':'name COLLATE NOCASE, id';
-  const data=await env.DB.prepare('SELECT id,name,description,category,author,tags_json,json_extract(details_json, '$.lifecycle') AS lifecycle FROM servers'+where+' ORDER BY '+order+' LIMIT ? OFFSET ?').bind(...bindings,size,(current-1)*size).all();
+  const data=await env.DB.prepare('SELECT id,name,description,category,author,tags_json,json_extract(details_json, \'$.lifecycle\') AS lifecycle FROM servers'+where+' ORDER BY '+order+' LIMIT ? OFFSET ?').bind(...bindings,size,(current-1)*size).all();
   return json({servers:data.results.map(s=>({id:s.id,name:s.name,description:s.description,category:s.category,author:s.author,tags:JSON.parse(s.tags_json),lifecycle:s.lifecycle||null})),total,page:current,pages,pageSize:size});
  }catch(e){console.error('Registry query failed',e);return json({error:'Registry query failed'},500);}
 }
