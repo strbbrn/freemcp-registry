@@ -74,8 +74,11 @@ async function render(){
    const categoryCell=element('div',undefined,'server-category');categoryCell.append(element('span',s.category,'category-pill'));
    const status=element('div',undefined,'server-status');
    const isArchived=s.lifecycle==='archived';
-   const state=element('span',isArchived?'Archived':'Not marked archived',isArchived?'status-pill archived':'status-pill unverified');
-   state.title=isArchived?'Legacy implementation marked archived':'No archived lifecycle flag in registry; maintenance status not verified';status.append(state);
+   if(isArchived){
+    const state=element('span','Archived','status-pill archived');
+    state.title='Legacy implementation marked archived';
+    status.append(state);
+   }
    const action=element('a','View details →','server-action');action.href=link.href;action.setAttribute('aria-label','View '+s.name+' details');
    row.append(identity,categoryCell,status,action);results.append(row);
   }
