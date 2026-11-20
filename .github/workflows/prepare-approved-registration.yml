@@ -1,0 +1,36 @@
+name: Prepare approved MCP registration
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Approved MCP submission issue number
+        required: true
+        type: number
+permissions:
+  contents: read
+  issues: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate SQL candidate (no database access)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        run: node scripts/prepare-approved-registration.mjs
+      - name: Upload registration candidate for maintainer review
+        uses: actions/upload-artifact@v4
+        with:
+          name: registration-candidate-issue-${{ inputs.issue_number }}
+          path: |
+            registration-candidate.sql
+            registration-review.json
+          retention-days: 14
+          if-no-files-found: error

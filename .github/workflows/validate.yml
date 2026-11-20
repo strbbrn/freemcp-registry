@@ -1,0 +1,55 @@
+name: Validate FreeMCP
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/freemcp-v2-foundation
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: Astro production build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify migrated server metadata
+        run: node scripts/validate-server-migration.mjs
+      - name: Run registry regression tests
+        run: node --test tests/registry.test.mjs tests/d1-api.test.mjs tests/manifest.test.mjs tests/submission-review.test.mjs tests/registration.test.mjs tests/submission-integration.test.mjs
+      - name: Verify 10,000-record FTS5 pagination
+        run: node scripts/benchmark-d1.mjs
+      - name: Enforce dependency security audit
+        run: npm audit --audit-level=low
+      - name: Compile production site
+        run: npm run build
+      - name: Smoke-test generated pages and accessibility landmarks
+        run: node --test tests/build-smoke.test.mjs
+      - name: Verify generated submission page
+        run: test -f dist/submit/index.html || test -f dist/submit.html
+      - name: Record full dependency audit (triage mode)
+        if: always()
+        run: npm audit --json > audit-full.json || true
+      - name: Record runtime dependency audit (triage mode)
+        if: always()
+        run: npm audit --omit=dev --json > audit-runtime.json || true
+      - name: Upload audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-audit
+          path: |
+            audit-full.json
+            audit-runtime.json
+          retention-days: 14
+          if-no-files-found: warn

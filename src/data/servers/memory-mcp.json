@@ -1,0 +1,17 @@
+{
+  "id": "memory-mcp",
+  "name": "Memory Graph MCP",
+  "description": "Persistent semantic knowledge-graph memory for AI agents. Enables LLMs to construct, read, write, and query fact-relationship networks to maintain long-term memory across chat sessions.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/memory",
+  "author": "modelcontextprotocol",
+  "category": "Database",
+  "stars": 18400,
+  "tags": [
+    "memory",
+    "knowledge-graph",
+    "persistent",
+    "learning",
+    "rag"
+  ],
+  "featured": true
+}

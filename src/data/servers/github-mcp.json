@@ -1,0 +1,41 @@
+{
+  "id": "github-mcp",
+  "name": "GitHub MCP Server",
+  "description": "Interact with GitHub APIs through MCP. Manage repositories, issues, pull requests, code search, and file operations — giving autonomous agents full-cycle software development capabilities.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/github",
+  "author": "modelcontextprotocol",
+  "category": "Development",
+  "stars": 18400,
+  "tags": [
+    "github",
+    "git",
+    "devops",
+    "issues",
+    "pull-requests"
+  ],
+  "featured": true,
+  "details": {
+    "summary": "Maintainer-documented hosted GitHub MCP endpoint. Authentication is performed through the supported client OAuth flow.",
+    "documentationUrl": "https://github.com/github/github-mcp-server/blob/main/README.md",
+    "security": [
+      "Grant only the required GitHub permissions.",
+      "Review tool approvals before allowing repository changes."
+    ],
+    "installations": [
+      {
+        "client": "VS Code",
+        "os": "Any",
+        "title": "Hosted HTTP (VS Code 1.101+)",
+        "config": {
+          "servers": {
+            "github": {
+              "type": "http",
+              "url": "https://api.githubcopilot.com/mcp/"
+            }
+          }
+        },
+        "notes": "Authenticate using the client's supported OAuth flow. Not independently tested by FreeMCP."
+      }
+    ]
+  }
+}

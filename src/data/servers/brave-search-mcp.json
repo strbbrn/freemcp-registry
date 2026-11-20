@@ -1,0 +1,17 @@
+{
+  "id": "brave-search-mcp",
+  "name": "Brave Search MCP",
+  "description": "Web and local search capabilities via Brave Search API. Enables agents to perform real-time web searches, news lookups, and local business queries with privacy-first, ad-free results.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/brave-search",
+  "author": "modelcontextprotocol",
+  "category": "Search",
+  "stars": 18400,
+  "tags": [
+    "search",
+    "web",
+    "brave",
+    "real-time",
+    "langchain"
+  ],
+  "featured": false
+}

@@ -11,7 +11,10 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.1",
-    "astro": "^6.4.8",
+    "astro": "7.4.12",
     "tailwindcss": "^4.3.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

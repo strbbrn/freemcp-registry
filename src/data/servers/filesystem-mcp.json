@@ -1,0 +1,65 @@
+{
+  "id": "filesystem-mcp",
+  "name": "Filesystem MCP Server",
+  "description": "Secure, configurable filesystem access for MCP agents. Supports reading, writing, listing, searching, and moving files — with sandboxed directory restrictions for safe autonomous file operations.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem",
+  "author": "modelcontextprotocol",
+  "category": "Utilities",
+  "stars": 18400,
+  "tags": [
+    "filesystem",
+    "files",
+    "io",
+    "sandbox",
+    "crewai"
+  ],
+  "featured": false,
+  "details": {
+    "summary": "Filesystem MCP grants file access only to explicitly allowed directories.",
+    "documentationUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/filesystem/README.md",
+    "security": [
+      "Use the narrowest possible allowed directory.",
+      "Avoid sharing secrets or private files with an MCP server."
+    ],
+    "installations": [
+      {
+        "client": "Claude Desktop",
+        "os": "macOS / Linux",
+        "title": "Local NPX",
+        "config": {
+          "mcpServers": {
+            "filesystem": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/ABSOLUTE/PATH/TO/ALLOWED/DIRECTORY"
+              ]
+            }
+          }
+        },
+        "notes": "Replace the placeholder with an absolute directory path."
+      },
+      {
+        "client": "Claude Desktop",
+        "os": "Windows",
+        "title": "Local NPX",
+        "config": {
+          "mcpServers": {
+            "filesystem": {
+              "command": "cmd",
+              "args": [
+                "/c",
+                "npx",
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "C:\\\\ABSOLUTE\\\\PATH\\\\TO\\\\DIRECTORY"
+              ]
+            }
+          }
+        },
+        "notes": "Replace the placeholder with an absolute directory path."
+      }
+    ]
+  }
+}

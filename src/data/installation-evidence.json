@@ -1,0 +1,16 @@
+{
+  "sequential-thinking-mcp": {
+    "sourceUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking/README.md",
+    "evidence": "maintainer-documented",
+    "runtime": "Node.js 24+",
+    "client": "Claude Desktop",
+    "transport": "stdio",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+    "windowsCommand": "cmd",
+    "windowsArgs": ["/c", "npx", "-y", "@modelcontextprotocol/server-sequential-thinking"],
+    "toolNames": ["sequentialthinking"],
+    "securityNotes": ["Thought content is logged to stderr by default; set DISABLE_THOUGHT_LOGGING=true to disable it.", "MAX_THOUGHT_HISTORY bounds in-memory thought history per connection."],
+    "runtimeTestedByFreeMCP": false
+  }
+}

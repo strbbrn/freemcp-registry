@@ -1,0 +1,17 @@
+{
+  "id": "notion-mcp",
+  "name": "Notion Workspace MCP",
+  "description": "Interact with Notion workspaces through MCP. Retrieve page contents, query databases, append blocks, and search workspace pages to give agents access to team wikis and document hubs.",
+  "githubUrl": "https://github.com/makenotion/notion-mcp-server",
+  "author": "makenotion",
+  "category": "Utilities",
+  "stars": 350,
+  "tags": [
+    "notion",
+    "wiki",
+    "documentation",
+    "productivity",
+    "database"
+  ],
+  "featured": false
+}
