@@ -4,7 +4,7 @@
 
 - Preview Pages project: `freemcp`, feature branch `feature/freemcp-v2-foundation`.
 - Preview D1 binding: `DB` → `freemcp-preview-registry` (database ID `1d3540c0-d836-4f8e-b048-fd22d780b46b`).
-- The production Pages configuration also currently has a `DB` binding to this preview database. **Remove that production binding before releasing**, but only with explicit approval. This feature branch does not change production.
+- Production Pages `DB` is now independently bound to `freemcp-prod-registry` (database ID `21a0f980-a749-4c69-b1b5-3d57d3a646c8`). Preview remains bound to its own database. Production database contents must be initialized before release.
 - The directory is API-driven; `/api/servers` uses indexed FTS5, category filtering, ordering, and 24-record pages. `?meta=categories` reads category values from D1.
 - Existing static server details retain their documentation. D1-only records are served by a Pages Function when a static detail route returns 404.
 
@@ -37,3 +37,21 @@ node scripts/sync-github-metadata.mjs --output seed/github-metadata.sql
 - To test real pagination, import a **synthetic dataset into a separate test D1 database** and verify 24 records/page across 10,000+ rows; do not pollute the preview or production registry.
 
 The unit tests exercise 10,000-record pagination, bound FTS search parameters, category metadata, missing bindings, and D1-only detail rendering. The separate local SQLite/FTS5 benchmark inserts 10,000 rows and checks FTS index consistency, category filtering, and LIMIT/OFFSET pagination. Neither test is a measured Cloudflare D1 remote load test.
+
+## Repeatable database initialization (no production site deployment)
+
+Cloudflare Pages continues to use its dashboard environment-specific D1 bindings. The separate `wrangler.d1.jsonc` file is **only** used when explicitly passed via `--config`; it is not a Pages build configuration. `npm run build` never mutates either database.
+
+```bash
+npm ci
+npm install --no-save --package-lock=false wrangler@4
+npm run db:migrate:preview
+npm run db:seed:preview
+# Run production commands only when explicitly authorized:
+npm run db:migrate:prod
+npm run db:seed:prod
+```
+
+The guarded GitHub workflow `.github/workflows/prepare-production-d1.yml` requires manual dispatch on the feature branch, confirmation text `PREPARE_PRODUCTION_D1`, and the GitHub Actions repository secret `CLOUDFLARE_API_TOKEN` with D1 write permission. It runs the schema, seed, and count check, but **does not deploy Pages, merge a branch, or modify the Preview database**. As with other new workflows, GitHub may require it to be on the default branch before it is dispatchable; in that case use the documented npm commands in a trusted CI environment with Cloudflare credentials, or wait for an approved workflow merge.
+
+The SQL migration uses `CREATE ... IF NOT EXISTS`; the generated seed uses upserts, so repeated initialization is safe for the 21 source records. Existing records not in the source are not deleted. This is a **manual, gated deployment preparation**, not an automatic production migration on every preview build.
