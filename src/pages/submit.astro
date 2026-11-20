@@ -16,6 +16,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 </BaseLayout>
 <script>
 import { secretPattern, securityHints, parseRepository, readmeHeadings, permissionLines, issueContent, validateDocumentationUrl } from '../lib/submission.mjs';
+import { validateManifest } from '../lib/manifest.mjs';
 const form=document.querySelector<HTMLFormElement>('#submit-server');
 const analyze=document.querySelector<HTMLButtonElement>('#analyze-repo');
 const status=document.querySelector<HTMLElement>('#analyze-status');
@@ -25,17 +26,6 @@ const evidenceLink=document.querySelector<HTMLAnchorElement>('#evidence-link');
 const securityPanel=document.querySelector<HTMLElement>('#security-panel');
 const securityMessage=document.querySelector<HTMLElement>('#security-message');
 let repoFlags:string[]=[];
-const allowedCategories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
-const safeText=(v:unknown,max:number)=>typeof v==='string'?v.trim().slice(0,max):'';
-const isRecord=(v:unknown):v is Record<string,unknown>=>typeof v==='object'&&v!==null&&!Array.isArray(v);
-function validManifest(v:unknown,repository:string):v is Record<string,unknown>{
- if(!isRecord(v)||v.schemaVersion!==1||!safeText(v.name,120)||!safeText(v.description,1200)||v.repository!==repository)return false;
- if(v.category!==undefined&&!allowedCategories.includes(String(v.category)))return false;
- if(v.transport!==undefined&&!['stdio','http','sse','unknown'].includes(String(v.transport)))return false;
- if(v.installation!==undefined&&(!isRecord(v.installation)||!safeText(v.installation.command,200)||!Array.isArray(v.installation.args)||v.installation.args.length>20||!v.installation.args.every(a=>typeof a==='string'&&a.length<=300)))return false;
- if(v.permissions!==undefined&&(!Array.isArray(v.permissions)||v.permissions.length>30||!v.permissions.every(p=>typeof p==='string'&&p.length<=200)))return false;
- return true;
-}
 analyze?.addEventListener('click',async()=>{
  if(!form||!status)return;
  const input=form.elements.namedItem('repository') as HTMLInputElement;
@@ -75,12 +65,13 @@ analyze?.addEventListener('click',async()=>{
     const raw=await manifestResponse.text();
     if(raw.length>30000)throw new Error('Manifest exceeds 30 KB limit');
     const manifest=JSON.parse(raw);
-    if(!validManifest(manifest,canonical))throw new Error('Manifest schema or repository URL is invalid');
+    const validation=validateManifest(manifest,canonical);
+    if(!validation.valid)throw new Error(validation.errors.join('; '));
     if(!name.value.trim()||name.value===metadata.name)name.value=safeText(manifest.name,120);
     if(!description.value.trim()||description.value===metadata.description)description.value=safeText(manifest.description,1200);
     if(manifest.category)category.value=String(manifest.category);
     if(manifest.transport)transport.value=String(manifest.transport);
-    if(isRecord(manifest.installation)&&!installation.value.trim())installation.value='Documented command (review before running): '+JSON.stringify({command:manifest.installation.command,args:manifest.installation.args});
+    if(manifest.installation&&!installation.value.trim())installation.value='Maintainer-provided configuration (review before use): '+JSON.stringify(manifest.installation);
     if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=permissionLines(manifest.permissions);
     source='Valid freemcp.json manifest found. Fields are maintainer-provided, not independently verified.';
     sourceUrl=canonical+'/blob/'+encodeURIComponent(String(metadata.default_branch||'main'))+'/freemcp.json';
