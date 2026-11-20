@@ -24,7 +24,7 @@ test('Homepage links to dedicated directory and preview retains the registry',()
 });
 test('Submission page has navigation and accessible form controls',()=>{
   const submit=page('submit');
-  assert.match(submit,/<main\\b/);
+  assert.match(submit,/<main\b/);
   assert.match(submit,/href="#main-content"/);
   assert.match(submit,/aria-label="Main navigation"/);
   for(const field of ['repository','name','description','docs','installation','permissions']) assert.ok(submit.includes('name="'+field+'"'),'missing field '+field);
