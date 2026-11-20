@@ -38,20 +38,6 @@ node scripts/sync-github-metadata.mjs --output seed/github-metadata.sql
 
 The unit tests exercise 10,000-record pagination, bound FTS search parameters, category metadata, missing bindings, and D1-only detail rendering. The separate local SQLite/FTS5 benchmark inserts 10,000 rows and checks FTS index consistency, category filtering, and LIMIT/OFFSET pagination. Neither test is a measured Cloudflare D1 remote load test.
 
-## Repeatable database initialization (no production site deployment)
+## Manual production D1 initialization
 
-Cloudflare Pages continues to use its dashboard environment-specific D1 bindings. The separate `wrangler.d1.jsonc` file is **only** used when explicitly passed via `--config`; it is not a Pages build configuration. `npm run build` never mutates either database.
-
-```bash
-npm ci
-npm install --no-save --package-lock=false wrangler@4
-npm run db:migrate:preview
-npm run db:seed:preview
-# Run production commands only when explicitly authorized:
-npm run db:migrate:prod
-npm run db:seed:prod
-```
-
-The guarded GitHub workflow `.github/workflows/prepare-production-d1.yml` requires manual dispatch on the feature branch, confirmation text `PREPARE_PRODUCTION_D1`, and the GitHub Actions repository secret `CLOUDFLARE_API_TOKEN` with D1 write permission. It runs the schema, seed, and count check, but **does not deploy Pages, merge a branch, or modify the Preview database**. As with other new workflows, GitHub may require it to be on the default branch before it is dispatchable; in that case use the documented npm commands in a trusted CI environment with Cloudflare credentials, or wait for an approved workflow merge.
-
-The SQL migration uses `CREATE ... IF NOT EXISTS`; the generated seed uses upserts, so repeated initialization is safe for the 21 source records. Existing records not in the source are not deleted. This is a **manual, gated deployment preparation**, not an automatic production migration on every preview build.
+Production and Preview have separate D1 bindings in Cloudflare Pages. The production D1 database is `freemcp-prod-registry`. Initialize it manually by executing `migrations/0001_servers.sql` followed by `seed/servers.sql` in the production D1 SQL console. Verify `SELECT COUNT(*) AS count FROM servers;` returns 21 and `SELECT COUNT(*) AS count FROM servers_search;` returns 21. These operations do not deploy the site. No production initialization workflow or npm migration scripts are included.
