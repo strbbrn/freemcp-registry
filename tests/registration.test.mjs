@@ -8,6 +8,8 @@ test('Generate SQL candidate without executing database writes',()=>{
  assert.match(result.sql,/Test''s Server/);
  assert.match(result.sql,/REVIEW REQUIRED/);
  assert.match(result.sql,/INSERT INTO servers/);
+ assert.match(result.sql,/WHERE NOT EXISTS/);
+ assert.match(result.sql,/lower\\(github_url\\)/);
  assert.equal(result.details.review.status,'pending-publication');
 });
 test('Reject missing installation, invalid manifest and ID collision',()=>{
