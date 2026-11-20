@@ -16,6 +16,6 @@ export function prepareRegistration(manifest,issueNumber,existingIds=[]){
  const values=[id,manifest.name,manifest.description,manifest.category,owner,JSON.stringify([]),manifest.repository,JSON.stringify(details)];
  const sql='-- REVIEW REQUIRED: generated candidate only; do not execute without separate approval.\n'+
   '-- Source GitHub issue #'+issueNumber+'; verify duplicate repository and ID against live D1.\n'+
-  'INSERT INTO servers (id,name,description,category,author,tags_json,github_url,details_json)\nVALUES ('+values.map(sqlQuote).join(', ')+');\n';
+  'INSERT INTO servers (id,name,description,category,author,tags_json,github_url,details_json)\nSELECT '+values.map(sqlQuote).join(', ')+'\nWHERE NOT EXISTS (SELECT 1 FROM servers WHERE lower(github_url) = '+sqlQuote(manifest.repository.toLowerCase())+');\n';
  return {id,sql,details};
 }
