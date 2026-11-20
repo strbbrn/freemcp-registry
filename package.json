@@ -7,7 +7,11 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "db:migrate:prod": "wrangler d1 execute freemcp-prod-registry --config wrangler.d1.jsonc --remote --file=migrations/0001_servers.sql",
+    "db:seed:prod": "node scripts/generate-d1-seed.mjs && wrangler d1 execute freemcp-prod-registry --config wrangler.d1.jsonc --remote --file=seed/servers.sql",
+    "db:migrate:preview": "wrangler d1 execute freemcp-preview-registry --config wrangler.d1.jsonc --remote --file=migrations/0001_servers.sql",
+    "db:seed:preview": "node scripts/generate-d1-seed.mjs && wrangler d1 execute freemcp-preview-registry --config wrangler.d1.jsonc --remote --file=seed/servers.sql"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.1",
