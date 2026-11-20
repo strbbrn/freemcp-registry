@@ -1,0 +1,216 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://freemcp.in/schemas/freemcp-v1.schema.json",
+  "title": "FreeMCP server manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "name",
+    "description",
+    "repository",
+    "category",
+    "transport"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1200
+    },
+    "repository": {
+      "type": "string",
+      "pattern": "^https://github\\\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/?$",
+      "maxLength": 300
+    },
+    "category": {
+      "enum": [
+        "Development",
+        "Database",
+        "Security",
+        "Search",
+        "Productivity",
+        "Communication",
+        "Cloud",
+        "Utilities",
+        "Other"
+      ]
+    },
+    "transport": {
+      "enum": [
+        "stdio",
+        "http",
+        "sse",
+        "unknown"
+      ]
+    },
+    "installation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "command",
+            "args"
+          ],
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "args": {
+              "type": "array",
+              "maxItems": 20,
+              "items": {
+                "type": "string",
+                "maxLength": 300
+              }
+            },
+            "env": {
+              "$ref": "#/$defs/env"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "endpoint"
+          ],
+          "properties": {
+            "endpoint": {
+              "type": "string",
+              "pattern": "^https://[^\\\\s]+$",
+              "maxLength": 2048
+            },
+            "env": {
+              "$ref": "#/$defs/env"
+            }
+          }
+        }
+      ]
+    },
+    "tools": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    }
+  },
+  "$defs": {
+    "env": {
+      "type": "object",
+      "maxProperties": 30,
+      "propertyNames": {
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "required",
+          "secret",
+          "description"
+        ],
+        "properties": {
+          "required": {
+            "type": "boolean"
+          },
+          "secret": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "transport": {
+            "const": "stdio"
+          }
+        },
+        "required": [
+          "transport",
+          "installation"
+        ]
+      },
+      "then": {
+        "properties": {
+          "installation": {
+            "required": [
+              "command"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "transport": {
+            "enum": [
+              "http",
+              "sse"
+            ]
+          }
+        },
+        "required": [
+          "transport",
+          "installation"
+        ]
+      },
+      "then": {
+        "properties": {
+          "installation": {
+            "required": [
+              "endpoint"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
