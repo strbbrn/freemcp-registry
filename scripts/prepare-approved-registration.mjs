@@ -26,8 +26,9 @@ if(!manifestResponse.ok)throw Error('Manifest missing from default branch: '+man
 const raw=await manifestResponse.text();
 let manifest=JSON.parse(raw);
 if(manifest.content&&manifest.encoding==='base64')throw Error('Unexpected GitHub API wrapper; raw manifest required');
+if(manifest.repository.toLowerCase()!==fields.Repository.toLowerCase())throw Error('Manifest repository differs from approved issue');
 if(manifest.name!==fields.Name||manifest.category!==fields.Category||manifest.description!==fields.Description||manifest.transport!==fields.Transport)throw Error('Issue and repository manifest disagree; request re-review');
 const registration=prepareRegistration(manifest,number);
 writeFileSync('registration-candidate.sql',registration.sql,{mode:0o600});
-writeFileSync('registration-review.json',JSON.stringify({issue:number,repository:fields.Repository,sourceCommit:metadata.default_branch,serverId:registration.id,reviewedBy:process.env.GITHUB_ACTOR,warning:'NOT DEPLOYED. Check live D1 duplicates and review SQL before applying.'},null,2)+'\n',{mode:0o600});
+writeFileSync('registration-review.json',JSON.stringify({issue:number,repository:fields.Repository,sourceBranch:metadata.default_branch,serverId:registration.id,reviewedBy:process.env.GITHUB_ACTOR,warning:'NOT DEPLOYED. Check live D1 duplicates and review SQL before applying.'},null,2)+'\n',{mode:0o600});
 console.log('Created registration candidate for '+registration.id+'. No database writes performed.');
