@@ -26,7 +26,8 @@ export async function onRequestGet(context) {
  const installations = list(d.installations).filter(x => x && typeof x === 'object' && x.config && typeof x.config === 'object' && !Array.isArray(x.config));
  const installHtml = installations.length ? installations.map((x,i) => `<article class="install"><h3>${esc(x.title || 'Installation')}</h3><p class="muted">${esc(x.client || 'MCP client')}${x.os ? ' · '+esc(x.os) : ''}</p><pre><code id="install-${i}">${esc(JSON.stringify(x.config,null,2))}</code></pre><p>${esc(x.notes || '')}</p><button type="button" data-copy="install-${i}">Copy configuration</button></article>`).join('') : fallback(docs,s.name);
  const listingUrl = 'https://freemcp.in/servers/' + encodeURIComponent(id);
- const badgeImageUrl = 'https://freemcp.in/badges/listed.svg';
+ // GitHub's raw asset URL bypasses Pages' HTML fallback and is embeddable in GitHub READMEs.
+ const badgeImageUrl = 'https://raw.githubusercontent.com/strbbrn/freemcp-registry/main/public/badges/listed.svg';
  const badgeMarkdown = '[![Listed on FreeMCP](' + badgeImageUrl + ')](' + listingUrl + ')';
  const badgeHtml = '<section class="panel" id="freemcp-badge"><div class="panel-head">Listed on FreeMCP badge</div><div class="panel-body"><p>Maintaining this MCP server? Add this optional badge to your GitHub README so visitors can find its FreeMCP listing. Listing is not a security certification or independent verification.</p><p><a href="' + esc(listingUrl) + '"><img src="' + esc(badgeImageUrl) + '" alt="MCP — Listed on FreeMCP" loading="lazy"></a></p><pre><code id="freemcp-badge-markdown">' + esc(badgeMarkdown) + '</code></pre><button type="button" data-copy="freemcp-badge-markdown">Copy README badge</button></div></section>';
  const security = list(d.security).length ? '<ul>'+list(d.security).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>' : '<p>Review the maintainer\'s permissions, required credentials and security guidance before enabling this server.</p>';
