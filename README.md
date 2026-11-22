@@ -1,256 +1,145 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/MCP-Registry-6366f1?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTIgMkwyIDdsOTkuOTk5IDUgMTAtNS0xMC01ek0yIDE3bDEwIDUgMTAtNUMyIDEybDEwIDUgMTAtNSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+PC9zdmc+" alt="FreeMCP Registry" />
-  <img src="https://img.shields.io/badge/100%25-Free%20%26%20Open%20Source-34d399?style=for-the-badge" alt="Free & Open Source" />
-  <img src="https://img.shields.io/badge/License-MIT-818cf8?style=for-the-badge" alt="MIT License" />
-  <img src="https://img.shields.io/badge/Infra%20Cost-%240%2Fmo-22d3ee?style=for-the-badge" alt="$0/mo" />
-</p>
+# FreeMCP.in
 
-<h1 align="center">FreeMCP.in</h1>
+**A community-curated directory of open-source Model Context Protocol (MCP) servers.**
 
-<p align="center">
-  <strong>The community-curated registry of 100% free and open-source<br/>Model Context Protocol (MCP) servers.</strong>
-</p>
+[Live site](https://freemcp.in) · [Explore servers](https://freemcp.in/servers) · [Submit a server](https://freemcp.in/submit) · [Manifest schema](docs/SUBMISSION_SCHEMA.md)
 
-<p align="center">
-  <a href="https://freemcp.in">🌐 Live Site</a> &nbsp;·&nbsp;
-  <a href="#-submit-a-server">📬 Submit a Server</a> &nbsp;·&nbsp;
-  <a href="#-contributing">🤝 Contribute</a> &nbsp;·&nbsp;
-  <a href="https://github.com/strbbrn/freemcp-registry/registry/discussions">💬 Discussions</a>
-</p>
+FreeMCP is built with **Astro + Cloudflare Pages Functions + Cloudflare D1**. Published listings come from a live database, not the old static `src/data/registry.json`. Listings are curated, but are **not** automatically runtime-tested or security-certified.
 
----
+## Features
 
-## 🧠 What is MCP?
+- **Live server directory:** search by keyword, filter by category, sort, and paginate D1-backed listings.
+- **Server detail pages:** maintainer and repository links, installation configurations where documented, security notes, and lifecycle indicators.
+- **Live GitHub metadata:** details pages fetch GitHub stars and archived/disabled status on page load; successful responses are cached in the visitor's browser for 15 minutes. GitHub API failures show an unavailable state rather than a fabricated zero.
+- **Recently added servers** sourced from the live registry on the homepage.
+- **Responsive design** with light and dark themes.
+- **Repository-first submission:** analyze a public GitHub repository, optionally import its root `freemcp.json`, review the evidence, and submit a GitHub issue.
+- **Human moderation:** no automatic approval or production publication. Approved-registration workflows generate review artifacts, not D1 writes.
 
-The **Model Context Protocol (MCP)** is an open standard created by Anthropic that provides a universal way for AI models and agents to connect to external tools, data sources, and services. Think of it as a USB-C port for AI — one protocol, infinite possibilities.
+## Pages and API
 
-MCP servers expose capabilities (tools, resources, prompts) that any compatible AI client — Claude Desktop, Cursor, LangChain, LangGraph, CrewAI — can instantly use without custom integration code.
+| URL | Description |
+| --- | --- |
+| [`/`](https://freemcp.in) | Homepage and recently added listings |
+| [`/servers`](https://freemcp.in/servers) | Browse, search, filter, and paginate |
+| `/servers/{id}` | Details, installation examples, live GitHub metadata |
+| [`/submit`](https://freemcp.in/submit) | Repository analysis and human-reviewed submission |
+| [`/api/servers`](https://freemcp.in/api/servers) | Published listings in JSON |
+| [`/api/servers?meta=categories`](https://freemcp.in/api/servers?meta=categories) | Available categories |
 
-**FreeMCP.in** exists because finding reliable, truly free MCP servers shouldn't require digging through scattered GitHub repos or hitting enterprise paywalls.
+The `GET /api/servers` endpoint accepts `q`, `category`, `sort` (`name`, `category`, `newest`), `page`, and `limit` (maximum 24). The response contains `servers`, `total`, `page`, `pages`, and `pageSize`. Pending-publication and test-only listings are hidden.
 
-## ✨ What is FreeMCP?
+## Submit a server
 
-FreeMCP is a fast, searchable, static registry that curates **only** free and open-source MCP servers. No freemium traps. No enterprise tiers. No vendor lock-in.
+1. Visit [freemcp.in/submit](https://freemcp.in/submit).
+2. Enter the URL of a public GitHub repository; optionally specify a branch.
+3. Select **Analyze GitHub repository**, then review imported information and installation/security evidence.
+4. Open the prefilled GitHub issue for maintainer review.
 
-### Why FreeMCP?
+A `freemcp.json` manifest is **optional**. You can submit a server without it. Submitting an issue does not publish the listing. See [moderation policy](docs/SUBMISSION_MODERATION.md).
 
-| Problem | FreeMCP Solution |
-|---|---|
-| Existing directories mix paid and free tools | **Strictly 100% free & open-source servers only** |
-| Hard to find servers by use case | **Category filters + real-time search by name, tags, description** |
-| No standardized quality bar | **Community-vetted with clear submission criteria** |
-| Registries require expensive backends | **Zero-cost static site — JSON data + Cloudflare Pages** |
-| Discovery is fragmented across GitHub | **One central hub for the community** |
+## `freemcp.json` v1 specification
 
-### Who is this for?
+Maintainers may add a **`freemcp.json` file at the root of their public GitHub repository**. FreeMCP's analyzer reads this metadata to prefill a submission. This file is **not** a Claude Desktop `mcpServers` runtime configuration.
 
-- 🤖 **AI Engineers** building autonomous agents with LangGraph, LangChain, or CrewAI
-- 🛡️ **DevSecOps Teams** looking for security and ASM tooling via MCP
-- 🧑‍💻 **Developers** integrating MCP servers into Claude Desktop or Cursor
-- 🌍 **Open-source contributors** who want to help the ecosystem grow
-
-## 🗂️ Registry Structure
-
-All server data lives in a single static JSON file:
-
-```
-src/data/registry.json
-```
-
-Each entry follows this schema:
+### Local stdio server example
 
 ```json
 {
-  "id": "unique-server-id",
-  "name": "Server Display Name",
-  "description": "What this server does and why it's useful for agents.",
-  "githubUrl": "https://github.com/author/repo",
-  "author": "github-username",
-  "category": "Database | Development | Security | DevOps | Utilities | Search | Communication | Cloud",
-  "stars": 1234,
-  "tags": ["tag1", "tag2", "langchain", "devsecops"],
-  "featured": false
+  "schemaVersion": 1,
+  "name": "Example Search MCP",
+  "description": "Search example resources.",
+  "repository": "https://github.com/example/example-mcp",
+  "category": "Search",
+  "transport": "stdio",
+  "installation": {
+    "command": "npx",
+    "args": ["-y", "@example/mcp-server"],
+    "env": {
+      "EXAMPLE_API_KEY": {
+        "required": true,
+        "secret": true,
+        "description": "Provide your own API key; never include its value"
+      }
+    }
+  },
+  "tools": [{"name": "search", "description": "Search example resources"}],
+  "permissions": ["Read access to example resources"]
 }
 ```
 
-### Current Categories
+### Remote Streamable HTTP server example
 
-| Category | Description | Examples |
-|---|---|---|
-| 🗄️ **Database** | SQL/NoSQL access for agents | SQLite, PostgreSQL |
-| ⌨️ **Development** | Code, repos, and dev workflows | GitHub, Filesystem |
-| 🛡️ **Security** | Scanning, SAST, recon, ASM | Shodan, Nmap, Semgrep |
-| 🚀 **DevOps** | Containers, CI/CD, infra | Docker |
-| 🔧 **Utilities** | General-purpose tools | Puppeteer, Browser automation |
-| 🔍 **Search** | Web and data search | Brave Search |
-| 💬 **Communication** | Messaging and notifications | Slack |
-| ☁️ **Cloud** | Cloud provider integrations | AWS Knowledge Base |
-
----
-
-## 📬 Submit a Server
-
-Found a great open-source MCP server that's not listed? We'd love to add it!
-
-### Submission Criteria
-
-Before submitting, make sure the server meets **all** of these:
-
-- [x] **Open source** — public GitHub repo with a recognized OSS license (MIT, Apache 2.0, GPL, etc.)
-- [x] **100% free** — no paid tiers, no API key paywalls for core functionality
-- [x] **MCP compliant** — implements the Model Context Protocol standard
-- [x] **Working** — has a functional README with setup instructions
-- [x] **Not a duplicate** — check the [live registry](https://freemcp.in) first
-
-### How to Submit
-
-**Option A: GitHub Issue (easiest)**
-
-1. Go to [**Submit a Server →**](https://github.com/strbbrn/freemcp-registry/registry/issues/new?template=submit-server.md)
-2. Fill out the issue template with the server details
-3. A maintainer will review and add it to the registry
-
-**Option B: Pull Request (for contributors)**
-
-1. Fork this repository
-2. Add the server entry to `src/data/registry.json`
-3. Follow the schema above — make sure the JSON is valid
-4. Open a PR with the title: `Add: [Server Name]`
-5. A maintainer will review and merge
-
-### What happens after submission?
-
-```
-You submit → Maintainer reviews → Merged to main → Cloudflare auto-deploys → Live on freemcp.in
+```json
+{
+  "schemaVersion": 1,
+  "name": "Example Remote MCP",
+  "description": "Remote MCP tools over HTTPS.",
+  "repository": "https://github.com/example/remote-mcp",
+  "category": "Development",
+  "transport": "http",
+  "installation": {"endpoint": "https://mcp.example.com/mcp"},
+  "permissions": ["Network access"]
+}
 ```
 
-Typical turnaround: **24–72 hours**. We review every submission manually to maintain quality.
+### Field reference
 
----
+| Field | Required | Constraints |
+| --- | --- | --- |
+| `schemaVersion` | Yes | Integer `1` |
+| `name` | Yes | Nonempty, max 120 characters |
+| `description` | Yes | Nonempty, max 1200 characters |
+| `repository` | Yes | Public GitHub owner/repository URL matching the analyzed project |
+| `category` | Yes | Development, Database, Security, Search, Productivity, Communication, Cloud, Utilities, Other |
+| `transport` | Yes | `stdio`, `http`, `sse` (legacy), `unknown` |
+| `installation` | No | `command` + `args` for stdio, or HTTPS `endpoint` for remote |
+| `tools` | No | Up to 50 `name`/`description` objects |
+| `permissions` | No | Up to 30 descriptive strings |
 
-## 🤝 Contributing
+Environment variables under `installation.env` contain **descriptions**, not actual secret values. Each variable requires `required` (boolean), `secret` (boolean), and `description` (string). Unknown properties and suspected embedded credentials are rejected.
 
-FreeMCP is built by the community, for the community. There are many ways to contribute beyond adding servers!
+**Authoritative references:** [JSON Schema](schemas/freemcp-v1.schema.json) · [Manifest documentation](docs/SUBMISSION_SCHEMA.md) · [Submission moderation](docs/SUBMISSION_MODERATION.md).
 
-### Ways to Contribute
+## Publication workflow
 
-| Contribution | Description | Difficulty |
-|---|---|---|
-| 🆕 **Submit a server** | Add a new MCP server to the registry | Easy |
-| 🐛 **Report a bug** | Found a broken link or UI issue? [Open an issue](https://github.com/strbbrn/freemcp-registry/registry/issues/new) | Easy |
-| 📝 **Improve descriptions** | Help write clearer server descriptions | Easy |
-| 🏷️ **Suggest categories/tags** | Help us organize better | Easy |
-| 🎨 **UI/UX improvements** | Design tweaks, accessibility, mobile fixes | Medium |
-| ⭐ **Star the repo** | Helps others discover FreeMCP | Easy |
-| 📢 **Spread the word** | Share on Twitter/X, Reddit, Discord, HN | Easy |
-| 🧪 **Test servers** | Verify listed servers still work | Medium |
-| 🌐 **Add features** | Search improvements, new pages, PWA support | Advanced |
+```text
+GitHub repository -> optional root freemcp.json -> Analyze -> GitHub issue
+  -> human review -> optional approved-registration workflow
+  -> SQL/JSON review artifacts -> explicit maintainer D1 publication
+  -> public listing
+```
 
-### Development Setup
+The `freemcp.json` manifest schema is distinct from the internal D1 `servers` table and `details_json` schema. Installation commands are never executed by the submission analyzer.
+
+## Development
 
 ```bash
-# Clone the repo
-git clone https://github.com/strbbrn/freemcp-registry/registry.git
-cd registry
-
-# Install dependencies
+git clone https://github.com/strbbrn/freemcp-registry.git
+cd freemcp-registry
 npm install
-
-# Start dev server
 npm run dev
-
-# Build for production
 npm run build
-
-# Preview production build
-npm run preview
 ```
 
-### Project Structure
+The Astro dev server does not automatically emulate Cloudflare D1. For local testing of Pages Functions, configure a separate development D1 binding named `DB`; do not point development operations at production.
 
-```
-freemcp-registry/
-├── src/
-│   ├── data/
-│   │   └── registry.json       # ← The registry database (edit this to add servers)
-│   ├── layouts/
-│   │   └── Layout.astro        # Global layout, nav, footer, design system
-│   └── pages/
-│       └── index.astro         # Main page — hero, search, card grid
-├── astro.config.mjs            # Astro configuration
-├── tailwind.config.mjs         # Tailwind CSS configuration
-├── wrangler.toml               # Cloudflare Pages deployment config
-└── package.json
-```
+| Component | Location |
+| --- | --- |
+| Astro pages | `src/pages/` |
+| D1 directory API | `functions/api/servers.js` |
+| Server detail handler | `functions/servers/[id].js` |
+| Manifest analyzer | `src/lib/manifest.mjs` |
+| Manifest JSON Schema | `schemas/freemcp-v1.schema.json` |
+| Submission moderation | `docs/SUBMISSION_MODERATION.md` |
+| Cloudflare deployment | `wrangler.toml` |
 
-### Code Guidelines
+## Contributing
 
-- **Keep it static** — no backend, no databases, no API calls at runtime
-- **Keep it fast** — the site should feel instant; minimize JS where possible
-- **Keep it accessible** — semantic HTML, proper contrast, keyboard navigation
-- **Keep it clean** — readable code with clear comments for complex sections
-- **Test your changes** — run `npm run build` before submitting a PR
+Contributions are welcome: suggest documented MCP servers, improve installation examples, report issues, and submit code fixes. Check repository ownership, license, maintenance, installation commands, and security implications. See [issues](https://github.com/strbbrn/freemcp-registry/issues) and [submission guidance](docs/SUBMISSION_SCHEMA.md).
 
----
+## License
 
-## 🏗️ Tech Stack
+See [LICENSE](LICENSE).
 
-| Layer | Technology | Why |
-|---|---|---|
-| **Framework** | [Astro](https://astro.build) | Zero-JS by default, blazing fast static builds |
-| **Styling** | [Tailwind CSS](https://tailwindcss.com) + custom CSS | Utility-first with design token system |
-| **Fonts** | Inter + JetBrains Mono | Premium readability for UI + code |
-| **Data** | Static JSON | No database, no API, no cost |
-| **Hosting** | [Cloudflare Pages](https://pages.cloudflare.com) | Free tier, global CDN, automatic deploys |
-| **Domain** | [freemcp.in](https://freemcp.in) | Custom domain |
-
-**Total infrastructure cost: $0/month** (forever on the free tier)
-
----
-
-## 🗺️ Roadmap
-
-We're just getting started. Here's what's planned:
-
-- [ ] **Server detail pages** — individual pages with full README, install commands, and compatibility matrix
-- [ ] **GitHub star count sync** — auto-update star counts via GitHub Actions (scheduled cron)
-- [ ] **Server health checks** — automated testing to verify servers are still functional
-- [ ] **One-click config generator** — paste-ready `claude_desktop_config.json` snippets
-- [ ] **RSS feed** — subscribe to new server additions
-- [ ] **Community voting** — upvote your favorite servers
-- [ ] **MCP server compatibility matrix** — which servers work with which clients
-- [ ] **Dark/light mode toggle** — for the light mode fans
-- [ ] **PWA support** — install FreeMCP as a desktop/mobile app
-
-Have an idea? [Start a discussion →](https://github.com/strbbrn/freemcp-registry/registry/discussions)
-
----
-
-## 🌱 Help the Community Grow
-
-FreeMCP is a zero-budget, community-driven project. The best way to help is to **spread the word**:
-
-- ⭐ **Star this repo** — it's the #1 signal that helps others discover us
-- 🐦 **Share on Twitter/X** — tag your AI engineering friends
-- 💬 **Post in Discord/Slack communities** — LangChain, CrewAI, AI Engineering groups
-- 📝 **Write about it** — blog posts, tutorials, mentions in newsletters
-- 🎥 **Make a video** — showcase how you use MCP servers in your agent stack
-- 🔗 **Link to freemcp.in** — from your README, docs, or blog
-
-Every star, share, and contribution helps more AI engineers discover free tools. Let's build the definitive open-source MCP ecosystem together.
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
-You're free to use, modify, and distribute this project. Attribution is appreciated but not required.
-
----
-
-<p align="center">
-  <strong>Built with ❤️ for the AI engineering community</strong>
-  <br/>
-  <a href="https://freemcp.in">freemcp.in</a>
-</p>
+**[FreeMCP.in](https://freemcp.in)** — discover open-source MCP servers.
