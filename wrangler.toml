@@ -1,6 +1,13 @@
-[build]
-  command = "npm run build"
-  publish = "dist"
+name = "freemcp"
+compatibility_date = "2026-11-22"
+pages_build_output_dir = "./dist"
 
-[build.environment]
-  NODE_VERSION = "20"
+[[d1_databases]]
+binding = "DB"
+database_name = "freemcp-prod-registry"
+database_id = "21a0f980-a749-4c69-b1b5-3d57d3a646c8"
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "freemcp-preview-registry"
+database_id = "1d3540c0-d836-4f8e-b048-fd22d780b46b"
