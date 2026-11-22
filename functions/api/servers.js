@@ -5,7 +5,7 @@ export async function onRequestGet({request,env}) {
  const url=new URL(request.url);
  if(url.searchParams.get('meta')==='categories'){
   try{
-   const rows=await env.DB.prepare('SELECT DISTINCT category FROM servers ORDER BY category COLLATE NOCASE').all();
+   const rows=await env.DB.prepare('SELECT DISTINCT category FROM servers WHERE COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only') ORDER BY category COLLATE NOCASE').all();
    return json({categories:rows.results.map(row=>row.category)});
   }catch(e){console.error('Registry categories failed',e);return json({error:'Registry categories failed'},500);}
  }
