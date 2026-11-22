@@ -1,0 +1,18 @@
+{
+  "id": "shodan-mcp",
+  "name": "Shodan MCP Server",
+  "description": "Attack surface reconnaissance via Shodan's internet-wide scanning database. Query exposed services, CVEs, open ports, and organization-wide exposure reports — purpose-built for security automation.",
+  "githubUrl": "https://github.com/BurtTheCoder/mcp-shodan",
+  "author": "BurtTheCoder",
+  "category": "Security",
+  "stars": 312,
+  "tags": [
+    "shodan",
+    "asm",
+    "recon",
+    "cve",
+    "devsecops",
+    "langgraph"
+  ],
+  "featured": true
+}

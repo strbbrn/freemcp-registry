@@ -1,0 +1,17 @@
+{
+  "id": "sqlite-mcp",
+  "name": "SQLite MCP Server",
+  "description": "A Model Context Protocol server that provides read and write access to local SQLite databases. Enables LLMs to execute SQL queries, inspect schemas, and manage data through standard database operations.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/sqlite",
+  "author": "modelcontextprotocol",
+  "category": "Database",
+  "stars": 18400,
+  "tags": [
+    "sqlite",
+    "database",
+    "sql",
+    "langchain",
+    "langgraph"
+  ],
+  "featured": true
+}

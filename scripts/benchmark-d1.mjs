@@ -1,0 +1,24 @@
+// Local SQLite/FTS5 scalability smoke test (not a Cloudflare D1 latency benchmark).
+// Run on Node 22+: node --disable-warning=ExperimentalWarning scripts/benchmark-d1.mjs
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import {performance} from 'node:perf_hooks';
+const db=new DatabaseSync(':memory:');
+db.exec(readFileSync(new URL('../migrations/0001_servers.sql',import.meta.url),'utf8'));
+const insert=db.prepare('INSERT INTO servers(id,name,description,category,author,tags_json,github_url,stars) VALUES (?,?,?,?,?,?,?,?)');
+const start=performance.now();
+db.exec('BEGIN');
+for(let i=0;i<10000;i++)insert.run('bench-'+i,'Benchmark server '+i,'Cloud and security automation server '+i,i%2?'Cloud':'Security','benchmark','["benchmark","automation"]','https://github.com/example/benchmark',i);
+db.exec('COMMIT');
+const seeded=performance.now();
+const count=db.prepare('SELECT COUNT(*) AS total FROM servers').get().total;
+const indexed=db.prepare('SELECT COUNT(*) AS total FROM servers_search').get().total;
+if(count!==10000||indexed!==10000)throw new Error('FTS index mismatch');
+const startQuery=performance.now();
+const found=db.prepare('SELECT id FROM servers WHERE id IN (SELECT id FROM servers_search WHERE servers_search MATCH ?) ORDER BY name COLLATE NOCASE,id LIMIT 24 OFFSET 240').all('"benchmark"*');
+const queryMs=performance.now()-startQuery;
+if(found.length!==24)throw new Error('Unexpected pagination length: '+found.length);
+const category=db.prepare('SELECT COUNT(*) AS total FROM servers WHERE category=?').get('Security').total;
+if(category!==5000)throw new Error('Category filter mismatch');
+console.log(JSON.stringify({records:count,ftsRecords:indexed,pageSize:found.length,securityCount:category,seedMs:Math.round(seeded-start),queryMs:Number(queryMs.toFixed(2))},null,2));
+db.close();

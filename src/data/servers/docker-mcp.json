@@ -1,0 +1,17 @@
+{
+  "id": "docker-mcp",
+  "name": "Docker MCP Server",
+  "description": "Manage Docker containers, images, volumes, and networks via MCP. Gives DevSecOps agents the ability to spin up containers, run workloads, and manage container lifecycles.",
+  "githubUrl": "https://github.com/QuantGeekDev/docker-mcp",
+  "author": "QuantGeekDev",
+  "category": "DevOps",
+  "stars": 423,
+  "tags": [
+    "docker",
+    "containers",
+    "devops",
+    "sandbox",
+    "crewai"
+  ],
+  "featured": false
+}

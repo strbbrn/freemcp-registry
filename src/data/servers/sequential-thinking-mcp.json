@@ -1,0 +1,61 @@
+{
+  "id": "sequential-thinking-mcp",
+  "name": "Sequential Thinking MCP",
+  "description": "Structured step-by-step thinking and planning capabilities. Allows agents to break down complex tasks, plan execution paths, evaluate hypotheses, and dynamically adjust reasoning strategies.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/sequential-thinking",
+  "author": "modelcontextprotocol",
+  "category": "Utilities",
+  "stars": 18400,
+  "tags": [
+    "thinking",
+    "reasoning",
+    "planning",
+    "logic",
+    "agents"
+  ],
+  "featured": true,
+  "details": {
+    "summary": "Maintainer-documented local NPX setup for sequential thinking.",
+    "documentationUrl": "https://github.com/modelcontextprotocol/servers/blob/main/src/sequentialthinking/README.md",
+    "security": [
+      "Review what information is passed to the server.",
+      "Consult the maintainer documentation for logging behavior."
+    ],
+    "installations": [
+      {
+        "client": "Claude Desktop",
+        "os": "macOS / Linux",
+        "title": "Local NPX",
+        "config": {
+          "mcpServers": {
+            "sequential-thinking": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+              ]
+            }
+          }
+        },
+        "notes": "Requires the supported Node.js runtime."
+      },
+      {
+        "client": "VS Code",
+        "os": "macOS / Linux",
+        "title": "Local NPX",
+        "config": {
+          "servers": {
+            "sequential-thinking": {
+              "command": "npx",
+              "args": [
+                "-y",
+                "@modelcontextprotocol/server-sequential-thinking"
+              ]
+            }
+          }
+        },
+        "notes": "Requires the supported Node.js runtime."
+      }
+    ]
+  }
+}

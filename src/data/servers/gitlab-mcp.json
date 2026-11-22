@@ -1,0 +1,17 @@
+{
+  "id": "gitlab-mcp",
+  "name": "GitLab Integration MCP",
+  "description": "Interact with GitLab API. Manage repositories, issues, merge requests, groups, and build pipelines — giving autonomous agents full-cycle GitLab development capabilities.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/gitlab",
+  "author": "modelcontextprotocol",
+  "category": "Development",
+  "stars": 18400,
+  "tags": [
+    "gitlab",
+    "git",
+    "devops",
+    "issues",
+    "ci-cd"
+  ],
+  "featured": false
+}

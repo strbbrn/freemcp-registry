@@ -1,0 +1,41 @@
+name: Sync GitHub metadata to Preview D1
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * *'
+permissions:
+  contents: read
+concurrency:
+  group: freemcp-preview-metadata-sync
+  cancel-in-progress: false
+jobs:
+  sync-preview:
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/feature/freemcp-v2-foundation'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: '030baee49692e80fb99fa6f602c846c9'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/freemcp-v2-foundation
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Generate GitHub metadata SQL
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/sync-github-metadata.mjs --output seed/github-metadata.sql
+      - name: Upload SQL for inspection
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: github-metadata-preview-sql
+          path: seed/github-metadata.sql
+          retention-days: 14
+      - name: Apply to preview D1 only
+        if: env.CLOUDFLARE_API_TOKEN != ''
+        run: npx --yes wrangler@4 d1 execute freemcp-preview-registry --remote --file=seed/github-metadata.sql
+      - name: Report missing Cloudflare authorization
+        if: env.CLOUDFLARE_API_TOKEN == ''
+        run: echo 'CLOUDFLARE_API_TOKEN not configured; SQL artifact generated but remote D1 not updated.'

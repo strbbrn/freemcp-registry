@@ -1,0 +1,17 @@
+{
+  "id": "postgres-mcp",
+  "name": "PostgreSQL MCP Server",
+  "description": "Read-only PostgreSQL access for LLM agents. Inspect schemas, run analytics queries, and retrieve relational data with safe, connection-pooled access to production or staging databases.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/postgres",
+  "author": "modelcontextprotocol",
+  "category": "Database",
+  "stars": 18400,
+  "tags": [
+    "postgresql",
+    "database",
+    "sql",
+    "analytics",
+    "langchain"
+  ],
+  "featured": false
+}

@@ -1,0 +1,17 @@
+{
+  "id": "linear-mcp",
+  "name": "Linear Issues MCP",
+  "description": "Linear project tracker integration. Search issues, create new tasks, update tickets, and inspect backlogs to help autonomous project management agents orchestrate development cycles.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers-archived/tree/main/src/linear",
+  "author": "modelcontextprotocol",
+  "category": "Development",
+  "stars": 18400,
+  "tags": [
+    "linear",
+    "issues",
+    "pm",
+    "workflow",
+    "project-management"
+  ],
+  "featured": false
+}

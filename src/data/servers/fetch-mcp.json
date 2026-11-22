@@ -1,0 +1,17 @@
+{
+  "id": "fetch-mcp",
+  "name": "Fetch Web Page MCP",
+  "description": "Fetch web page content and convert it into clean, readable Markdown. Optimized for LLMs to read documentation, APIs, and online articles without HTML or script noise.",
+  "githubUrl": "https://github.com/modelcontextprotocol/servers/tree/main/src/fetch",
+  "author": "modelcontextprotocol",
+  "category": "Utilities",
+  "stars": 18400,
+  "tags": [
+    "fetch",
+    "web-reader",
+    "markdown",
+    "scraping",
+    "utilities"
+  ],
+  "featured": false
+}

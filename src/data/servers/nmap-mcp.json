@@ -1,0 +1,17 @@
+{
+  "id": "nmap-mcp",
+  "name": "Nmap MCP Server",
+  "description": "Network discovery and port scanning through MCP. Enables security agents to run configurable Nmap scans, parse results, and feed structured host/service data into automated vulnerability workflows.",
+  "githubUrl": "https://github.com/vorotaai/nmap-mcp",
+  "author": "vorotaai",
+  "category": "Security",
+  "stars": 187,
+  "tags": [
+    "nmap",
+    "network",
+    "scanning",
+    "pentest",
+    "devsecops"
+  ],
+  "featured": false
+}

@@ -1,0 +1,48 @@
+name: Apply verified dependency remediation
+on:
+  push:
+    branches:
+      - feature/freemcp-v2-foundation
+    paths:
+      - .github/workflows/apply-dependency-fixes.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: feature/freemcp-v2-foundation
+          persist-credentials: true
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked baseline
+        run: npm ci
+      - name: Apply compatible fixes
+        run: npm audit fix || echo 'Major-version advisories handled in subsequent upgrade step'
+      - name: Apply tested Astro upgrade
+        run: npm install astro@7.4.12 --save-exact
+      - name: Resolve remaining esbuild advisory
+        run: npm install esbuild@0.28.2 --save-dev --save-exact
+      - name: Verify clean lockfile install
+        run: npm ci
+      - name: Verify production build
+        run: npm run build
+      - name: Enforce zero reported vulnerabilities
+        run: npm audit --audit-level=low
+      - name: Commit verified dependency files to feature branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes"
+          else
+            git commit -m "fix(deps): apply verified Astro and esbuild security updates"
+            git push origin HEAD:feature/freemcp-v2-foundation
+          fi
