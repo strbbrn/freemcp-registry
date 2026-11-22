@@ -3,7 +3,7 @@
 html[data-theme=light]{--bg:oklch(.96 .005 240);--surface:white;--border:oklch(.2 .01 240 / 12%);--text:oklch(.16 .02 240);--muted:oklch(.43 .02 245);--accent:oklch(.5 .12 210);--secondary:oklch(.92 .01 240);--glow:oklch(.65 .15 230 / 12%)}
 html,body{font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .site-header{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
-.site-nav{min-height:56px}.brand{font-size:15px;font-weight:650;letter-spacing:-.025em}.brand span{display:none}.brand:before{content:'fm';display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;border-radius:6px;background:var(--accent);color:var(--bg);font:600 12px 'Geist Mono',monospace;vertical-align:middle}
+.site-nav{min-height:56px}.brand{font-size:15px;font-weight:650;letter-spacing:-.025em}.brand span{display:none}
 .nav-links a{font-size:14px}.submit-link{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:13px;font-weight:500}.theme-toggle{border-radius:6px;padding:8px 12px}
 .directory,.submit{position:relative;isolation:isolate}
 .directory:before,.submit:before{content:'';position:absolute;z-index:-1;pointer-events:none;top:0;left:0;right:0;height:320px;background:radial-gradient(ellipse 60% 55% at 50% 0,var(--glow),transparent 75%)}
