@@ -1,0 +1,43 @@
+/* FreeMCP marketplace design, based on approved Lovable homepage. */
+:root{--bg:#101419;--surface:#181e25;--border:#2b343d;--text:#f0f6f8;--muted:#a0adb8;--accent:#75d9e9;--glow:rgba(75,188,214,.12)}
+html[data-theme=light]{--bg:#f5f9fa;--surface:#fff;--border:#d8e4e7;--text:#17282f;--muted:#52646c;--accent:#087d96;--glow:rgba(40,160,180,.09)}
+body{font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.site-header{background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.brand{letter-spacing:-.045em}.brand:before{content:'fm';display:inline-grid;place-items:center;margin-right:10px;width:30px;height:30px;background:var(--accent);color:var(--bg);border-radius:8px;font:800 11px ui-monospace,monospace;vertical-align:middle}
+.submit-link{background:var(--accent);color:var(--bg);border-radius:9px}.theme-toggle{border-radius:9px}
+.directory,.submit{position:relative;isolation:isolate}
+.directory:before,.submit:before{content:'';position:absolute;z-index:-1;pointer-events:none;top:0;left:0;right:0;height:350px;background:radial-gradient(ellipse at 50% 0,var(--glow),transparent 72%)}
+.directory>.eyebrow,.submit>.eyebrow{font-family:ui-monospace,monospace;font-size:11px;letter-spacing:.15em}
+.directory h1,.submit h1{font-size:clamp(36px,5vw,60px);letter-spacing:-.055em;font-weight:800;line-height:1.1;margin:17px 0}
+.directory>p,.submit>.lede{font-size:15px;max-width:650px}
+.directory .toolbar{margin-top:38px;background:var(--surface);border:1px solid var(--border);padding:17px;border-radius:16px;gap:14px}
+.directory .toolbar input,.directory .toolbar select{background:var(--bg);border-radius:10px;padding:14px;font-size:14px}
+.directory .toolbar input:focus,.directory .toolbar select:focus,.submit input:focus,.submit textarea:focus,.submit select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--glow);outline:0}
+.directory .listing-shell{background:transparent;border:0;overflow:visible}
+.directory .listing-head{display:none}
+.directory .results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px}
+.directory .results :global(.server-row){display:flex;flex-direction:column;align-items:stretch;gap:16px;padding:22px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(155deg,color-mix(in srgb,var(--surface) 96%,var(--accent)),var(--surface));min-height:240px;transition:transform .18s,border-color .18s,box-shadow .18s}
+.directory .results :global(.server-row:hover){transform:translateY(-3px);border-color:color-mix(in srgb,var(--accent) 50%,var(--border));box-shadow:0 14px 35px var(--glow)}
+.directory .results :global(.server-identity){gap:12px}
+.directory .results :global(.server-mark){width:44px;height:44px;flex:0 0 44px;border-radius:12px;background:var(--glow);font-family:ui-monospace,monospace}
+.directory .results :global(.server-main h2){font-size:17px;margin:3px 0 9px}
+.directory .results :global(.server-description){font-size:13px;line-height:1.65;-webkit-line-clamp:3;margin:0 0 10px}
+.directory .results :global(.server-author){font-size:12px}
+.directory .results :global(.server-category){margin-top:auto}
+.directory .results :global(.category-pill){border-radius:100px;padding:6px 10px;color:var(--accent);background:var(--glow);border-color:color-mix(in srgb,var(--accent) 24%,transparent)}
+.directory .results :global(.server-action){font-size:12px;margin:0;color:var(--accent)}
+.directory .results :global(.server-status){min-height:0}
+.directory .pagination button{border-radius:10px;padding:11px 18px}
+.submit{max-width:960px}
+.submit .panel{border-radius:20px;padding:36px;background:linear-gradient(150deg,color-mix(in srgb,var(--surface) 96%,var(--accent)),var(--surface));box-shadow:0 20px 60px rgba(0,0,0,.08)}
+.submit .steps{justify-content:space-between;gap:12px}
+.submit .steps span{flex:1;min-width:160px;border-radius:12px;padding:14px}
+.submit .steps b,.submit .section-number{color:var(--accent)}
+.submit .section-number{border-radius:11px;background:var(--glow);border-color:color-mix(in srgb,var(--accent) 20%,var(--border))}
+.submit .section-heading h2{font-size:21px}
+.submit input:not([type=checkbox]),.submit textarea,.submit select{border-radius:10px;background:var(--bg);padding:14px}
+.submit .analyze button{border-radius:10px;padding:12px 16px}
+.submit .primary{background:var(--accent);color:var(--bg);border-radius:10px;padding:15px 22px;font-size:14px}
+.submit .evidence{border-radius:12px}
+@media(max-width:960px){.directory .results{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.directory .results{grid-template-columns:1fr}.directory .results :global(.server-row){min-height:0}.directory .results :global(.server-identity){grid-column:auto}.directory .results :global(.server-category),.directory .results :global(.server-status),.directory .results :global(.server-action){grid-column:auto;grid-row:auto;margin:0}.directory .toolbar{padding:13px}.submit .panel{padding:20px}.submit .steps span{min-width:0;flex:1 1 100%}}
