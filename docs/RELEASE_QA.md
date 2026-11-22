@@ -2,7 +2,9 @@
 
 Automated build-smoke tests run in GitHub Actions after Astro builds. They verify all server routes, homepage and preview catalogue inclusion, navigation landmarks, skip links, and submission form controls. **They are not a substitute for a real browser or assistive-technology audit.**
 
-## Manual browser matrix (pending execution)
+## Manual browser matrix (partially verified)
+
+On 2026-11-22, the project owner reported manually opening the website links and confirming they worked. This is **user-reported link/navigation verification**, not a documented cross-browser, responsive, accessibility, or form-security test. Browser/version, viewport, and screenshots were not provided. Keep the detailed checks below open until individually verified.
 
 Test at 375px mobile, 768px tablet, and 1440px desktop in Chromium, Firefox, and WebKit/Safari.
 
