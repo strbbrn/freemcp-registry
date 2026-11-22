@@ -12,7 +12,7 @@ export function prepareRegistration(manifest,issueNumber,existingIds=[]){
  if(!manifest.installation)throw new Error('Installation instructions required for registration');
  const installation=manifest.installation;
  const config=installation.command?{mcpServers:{[repo]:{command:installation.command,args:installation.args||[]}}}:{mcpServers:{[repo]:{type:manifest.transport,url:installation.endpoint}}};
- const details={summary:manifest.description,documentationUrl:manifest.repository+'#readme',security:manifest.permissions||[],installations:[{title:installation.command?'Local command':'Remote endpoint',client:'Generic MCP client',config,notes:'Submitted configuration; maintainer must verify before publication.'}],review:{issue:issueNumber,status:'pending-publication',source:'approved-submission'}};
+ const details={summary:manifest.description,documentationUrl:manifest.repository+'#readme',security:manifest.permissions||[],tools:manifest.tools||[],prerequisites:manifest.prerequisites||[],installations:[{title:installation.command?'Local command':'Remote endpoint',client:'Generic MCP client',config,notes:'Submitted configuration; maintainer must verify before publication.'}],review:{issue:issueNumber,status:'pending-publication',source:'approved-submission'}};
  const values=[id,manifest.name,manifest.description,manifest.category,owner,JSON.stringify([]),manifest.repository,JSON.stringify(details)];
  const sql='-- REVIEW REQUIRED: generated candidate only; do not execute without separate approval.\n'+
   '-- Source GitHub issue #'+issueNumber+'; verify duplicate repository and ID against live D1.\n'+
