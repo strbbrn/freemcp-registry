@@ -20,10 +20,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
  const make=(tag,cls,value)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(value!=null)el.textContent=value;return el;};
  try {
   const [serverResponse,categoryResponse]=await Promise.all([fetch('/api/servers?sort=newest&page=1&limit=6'),fetch('/api/servers?meta=categories')]);
-  if(!serverResponse.ok||!categoryResponse.ok)throw new Error('Registry unavailable');
-  const [data,categories]=await Promise.all([serverResponse.json(),categoryResponse.json()]);
-  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||data.servers.length>6||!Array.isArray(categories.categories))throw new Error('Unexpected registry response');
-  summary.textContent=`${data.total} servers across ${categories.categories.length} categories`;
+  if(!serverResponse.ok)throw new Error(`Servers API returned HTTP ${serverResponse.status}`);
+  const data=await serverResponse.json();
+  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||data.servers.length>6)throw new Error('Unexpected servers API response');
+  let categoryCount=null;
+  if(categoryResponse.ok){try{const categories=await categoryResponse.json();if(Array.isArray(categories.categories))categoryCount=categories.categories.length;}catch(e){console.warn('Category metadata unavailable',e);}}
+  summary.textContent=categoryCount===null?`${data.total} servers in the live registry`:`${data.total} servers across ${categoryCount} categories`;
   grid.replaceChildren();
   for(const server of data.servers){
    const article=make('article','featured-card');
@@ -41,7 +43,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
  } catch(error){
   console.warn('Live registry unavailable',error);
   summary.textContent='Live registry temporarily unavailable';
-  grid.replaceChildren(make('p','loading-message','Unable to load servers right now. Please try again shortly.'));
+  grid.replaceChildren(make('p','loading-message',`Unable to load servers ( ${error.message} ). Please try again shortly.`));
  }
 })();
 </script>
