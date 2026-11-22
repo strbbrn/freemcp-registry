@@ -14,7 +14,9 @@ export async function onRequestGet({request,env}) {
  const requestedSort=url.searchParams.get('sort');
  const sort=requestedSort==='newest'?'newest':requestedSort==='category'?'category':'name';
  const page=Math.min(10000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
- const size=24, conditions=["COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')"], bindings=[];
+ const requestedLimit=Number.parseInt(url.searchParams.get('limit')||'24',10);
+ const size=Number.isFinite(requestedLimit)?Math.min(24,Math.max(1,requestedLimit)):24;
+ const conditions=["COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')"], bindings=[];
  if(category){conditions.push('category = ?');bindings.push(category);}
  if(q){
   // FTS5 tokens are escaped as quoted phrases; no raw user-supplied FTS operators.
