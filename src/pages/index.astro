@@ -1,12 +1,5 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getServers, getCategories } from '../lib/registry';
-import { validateRegistry } from '../lib/registry';
-const featured = getServers().slice(0,6);
-const totalServers=getServers().length;
-const totalCategories=getCategories().length;
-const errors = validateRegistry();
-if (errors.length) throw new Error('Invalid MCP registry: ' + errors.join('; '));
 ---
 <BaseLayout title="FreeMCP 2.0 — Open-source MCP server registry" description="Discover and explore open-source Model Context Protocol servers.">
   <section class="container hero">
@@ -15,10 +8,41 @@ if (errors.length) throw new Error('Invalid MCP registry: ' + errors.join('; '))
     <p>Explore a curated registry of open-source MCP servers, inspect installation guidance, and submit projects for community review.</p>
     <div class="hero-actions"><a class="submit-link" href="#registry">Explore servers</a><a class="submit-link secondary" href="/submit">Submit a server</a></div>
   </section>
-  <section class="container featured" id="registry"><div class="section-head"><div><div class="eyebrow">DISCOVER</div><h2>Explore the registry</h2><p id="registry-summary" aria-live="polite">{totalServers} servers across {totalCategories} categories</p></div><a class="submit-link" href="/servers">Browse all servers →</a></div><div class="featured-grid">{featured.map(server=><article class="featured-card"><span>{server.category}</span><h3><a href={'/servers/'+server.id}>{server.name}</a></h3><p>{server.description}</p></article>)}</div></section><section class="container getting-started" id="how-it-works"><h2>Getting started</h2><p>Browse the registry, review a server's documentation and security considerations, then configure your MCP client using maintainer-backed instructions.</p><a href="/servers">Find an MCP server →</a></section>
+  <section class="container featured" id="registry">
+    <div class="section-head"><div><div class="eyebrow">FRESH FROM THE COMMUNITY</div><h2>Recently added MCP servers</h2><p id="registry-summary" aria-live="polite">Loading the live registry…</p></div><a class="submit-link" href="/servers">Browse all servers →</a></div>
+    <div class="featured-grid" id="recent-servers" aria-live="polite"><p class="loading-message">Loading recently added servers…</p></div>
+  </section>
+  <section class="container getting-started" id="how-it-works"><h2>Getting started</h2><p>Browse the registry, review a server's documentation and security considerations, then configure your MCP client using maintainer-backed instructions.</p><a href="/servers">Find an MCP server →</a></section>
 <script is:inline>
-// D1 is the source of truth for public registry totals; static values are a no-JS fallback.
-(async () => { try { const [serversResponse, categoriesResponse] = await Promise.all([fetch('/api/servers?page=1'), fetch('/api/servers?meta=categories')]); if (!serversResponse.ok || !categoriesResponse.ok) return; const servers = await serversResponse.json(); const categories = await categoriesResponse.json(); const summary = document.getElementById('registry-summary'); if (summary && Number.isInteger(servers.total) && Array.isArray(categories.categories)) summary.textContent = `${servers.total} servers across ${categories.categories.length} categories`; } catch (error) { console.warn('Live registry summary unavailable', error); } })();
+(async () => {
+ const grid=document.getElementById('recent-servers');
+ const summary=document.getElementById('registry-summary');
+ const make=(tag,cls,value)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(value!=null)el.textContent=value;return el;};
+ try {
+  const [serverResponse,categoryResponse]=await Promise.all([fetch('/api/servers?sort=newest&page=1'),fetch('/api/servers?meta=categories')]);
+  if(!serverResponse.ok||!categoryResponse.ok)throw new Error('Registry unavailable');
+  const [data,categories]=await Promise.all([serverResponse.json(),categoryResponse.json()]);
+  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||!Array.isArray(categories.categories))throw new Error('Unexpected registry response');
+  summary.textContent=`${data.total} servers across ${categories.categories.length} categories`;
+  grid.replaceChildren();
+  for(const server of data.servers.slice(0,6)){
+   const article=make('article','featured-card');
+   const category=make('span','',server.category);
+   const title=make('h3');
+   const link=make('a','',server.name);
+   link.href='/servers/'+encodeURIComponent(server.id);
+   title.append(link);
+   const description=make('p','',server.description);
+   article.append(category,title,description);
+   grid.append(article);
+  }
+  if(!data.servers.length)grid.append(make('p','loading-message','No published servers yet.'));
+ } catch(error){
+  console.warn('Live registry unavailable',error);
+  summary.textContent='Live registry temporarily unavailable';
+  grid.replaceChildren(make('p','loading-message','Unable to load servers right now. Please try again shortly.'));
+ }
+})();
 </script>
 </BaseLayout>
 <style>
@@ -31,4 +55,5 @@ h1 span{color:var(--muted)}
 .hero-actions a{display:inline-flex;padding:12px 18px;text-decoration:none}
 .secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
 @media(max-width:650px){.hero{padding:64px 0 55px}}
-.featured{padding:64px 0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:25px}.section-head h2,.getting-started h2{font-size:28px;margin:10px 0}.section-head p,.getting-started p{color:var(--muted)}.featured-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}.featured-card span{font-size:12px;color:var(--accent)}.featured-card h3{margin:15px 0;font-size:18px}.featured-card h3 a{text-decoration:none}.featured-card p{font-size:13px;line-height:1.6;color:var(--muted)}.getting-started{padding:50px 0 90px;border-top:1px solid var(--border)}.getting-started p{max-width:650px;line-height:1.7}.getting-started a{color:var(--accent)}</style>
+.featured{padding:64px 0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:25px}.section-head h2,.getting-started h2{font-size:28px;margin:10px 0}.section-head p,.getting-started p{color:var(--muted)}.featured-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}.featured-card span{font-size:12px;color:var(--accent)}.featured-card h3{margin:15px 0;font-size:18px}.featured-card h3 a{text-decoration:none}.featured-card p,.loading-message{font-size:13px;line-height:1.6;color:var(--muted)}.getting-started{padding:50px 0 90px;border-top:1px solid var(--border)}.getting-started p{max-width:650px;line-height:1.7}.getting-started a{color:var(--accent)}
+</style>
