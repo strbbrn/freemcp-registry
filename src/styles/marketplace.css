@@ -1,0 +1,44 @@
+/* Faithful port of approved Lovable FreeMCP homepage design tokens. */
+:root{--bg:oklch(.155 .012 250);--surface:oklch(.19 .014 250);--border:oklch(1 0 0 / 8%);--text:oklch(.96 .005 240);--muted:oklch(.68 .02 245);--accent:oklch(.82 .13 210);--secondary:oklch(.23 .016 250);--glow:oklch(.65 .15 230 / 22%)}
+html[data-theme=light]{--bg:oklch(.96 .005 240);--surface:white;--border:oklch(.2 .01 240 / 12%);--text:oklch(.16 .02 240);--muted:oklch(.43 .02 245);--accent:oklch(.5 .12 210);--secondary:oklch(.92 .01 240);--glow:oklch(.65 .15 230 / 12%)}
+html,body{font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.site-header{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(16px);border-bottom:1px solid var(--border)}
+.site-nav{min-height:56px}.brand{font-size:15px;font-weight:650;letter-spacing:-.025em}.brand span{display:none}.brand:before{content:'fm';display:inline-grid;place-items:center;width:28px;height:28px;margin-right:8px;border-radius:6px;background:var(--accent);color:var(--bg);font:600 12px 'Geist Mono',monospace;vertical-align:middle}
+.nav-links a{font-size:14px}.submit-link{background:transparent;border:1px solid var(--border);color:var(--text);border-radius:6px;padding:8px 12px;font-size:13px;font-weight:500}.theme-toggle{border-radius:6px;padding:8px 12px}
+.directory,.submit{position:relative;isolation:isolate}
+.directory:before,.submit:before{content:'';position:absolute;z-index:-1;pointer-events:none;top:0;left:0;right:0;height:320px;background:radial-gradient(ellipse 60% 55% at 50% 0,var(--glow),transparent 75%)}
+.directory>.eyebrow,.submit>.eyebrow{font:500 12px 'Geist Mono',monospace;letter-spacing:.12em;text-transform:uppercase}
+.directory h1,.submit h1{font-size:clamp(36px,5vw,58px);letter-spacing:-.055em;font-weight:650;line-height:1.12;margin:16px 0}
+.directory>p,.submit>.lede{font-size:15px;max-width:650px;line-height:1.7}
+.directory .toolbar{margin:32px 0 20px;background:var(--surface);border:1px solid var(--border);padding:16px;border-radius:12px;gap:12px}
+.directory .toolbar label{font-size:12px;font-weight:500}
+.directory .toolbar input,.directory .toolbar select{background:var(--bg);border-radius:8px;padding:12px;font-size:14px}
+.directory .toolbar input:focus,.directory .toolbar select:focus,.submit input:focus,.submit textarea:focus,.submit select:focus{border-color:var(--accent);box-shadow:0 0 0 2px var(--glow);outline:0}
+.directory .listing-shell{background:transparent;border:0;overflow:visible}.directory .listing-head{display:none}
+.directory .results{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.directory .results .server-row{display:flex;flex-direction:column;align-items:stretch;gap:0;padding:20px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(180deg,oklch(1 0 0 / 4%),oklch(1 0 0 / 1%));min-height:230px;transition:transform .2s,border-color .2s,box-shadow .2s}
+.directory .results .server-row:hover{transform:translateY(-2px);border-color:oklch(.82 .13 210 / 40%);box-shadow:0 0 0 1px oklch(.82 .13 210 / 18%),0 12px 40px -12px oklch(.65 .15 230 / 25%)}
+.directory .results .server-identity{display:contents}
+.directory .results .server-mark{display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:8px;font:500 14px 'Geist Mono',monospace}
+.directory .results .server-main{display:contents}
+.directory .results .server-main h2{font-size:16px;font-weight:650;letter-spacing:-.025em;margin:16px 0 7px}
+.directory .results .server-description{font-size:14px;line-height:1.55;-webkit-line-clamp:2;margin:0;color:var(--muted)}
+.directory .results .server-author{margin-top:auto;padding-top:17px;font:12px 'Geist Mono',monospace;color:var(--muted)}
+.directory .results .server-category{position:absolute;top:20px;right:20px}
+.directory .results .server-row{position:relative}
+.directory .results .category-pill{border-radius:100px;padding:4px 10px;font:11px 'Geist Mono',monospace;color:var(--muted);background:var(--secondary);border-color:var(--border)}
+.directory .results .server-status{position:absolute;bottom:16px;right:20px}
+.directory .results .server-action{position:absolute;inset:0;font-size:0;z-index:1}
+.directory .results .server-action:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.directory .pagination button{border-radius:8px;padding:10px 16px}
+.submit .panel{border-radius:12px;padding:30px;background:linear-gradient(180deg,oklch(1 0 0 / 4%),oklch(1 0 0 / 1%));box-shadow:none}
+.submit .steps{justify-content:space-between;gap:12px}.submit .steps span{flex:1;min-width:160px;border-radius:8px;padding:12px;background:var(--secondary);font-weight:500}
+.submit .steps b,.submit .section-number{color:var(--accent);font-family:'Geist Mono',monospace}
+.submit .section-number{border-radius:8px;background:var(--secondary)}
+.submit .section-heading h2{font-size:20px;font-weight:650}
+.submit input:not([type=checkbox]),.submit textarea,.submit select{border-radius:8px;background:var(--bg);padding:13px}
+.submit .analyze button{border-radius:8px;padding:12px 16px}
+.submit .primary{background:var(--accent);color:var(--bg);border-radius:8px;padding:13px 20px;font-size:14px}
+.submit .evidence{border-radius:8px}
+@media(max-width:960px){.directory .results{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.directory .results{grid-template-columns:1fr}.directory .results .server-row{min-height:220px}.directory .results .server-identity{grid-column:auto}.directory .results .server-category,.directory .results .server-status,.directory .results .server-action{grid-column:auto;grid-row:auto;margin:0}.directory .toolbar{padding:12px}.submit .panel{padding:18px}.submit .steps span{min-width:0;flex:1 1 100%}}
