@@ -26,6 +26,7 @@ The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/fre
     }
   },
   "tools": [{"name": "search", "description": "Search example resources"}],
+  "prerequisites": ["Node.js 20+", "An example service account"],
   "permissions": ["Read access to example resources"]
 }
 ```
@@ -53,7 +54,8 @@ The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/fre
 - Transports: `stdio`, `http` (Streamable HTTP), `sse` (legacy), `unknown`.
 - Optional `installation` uses **either** `command` plus `args` for stdio, **or** HTTPS `endpoint` for remote HTTP/SSE. For `unknown` transport either installation shape is accepted.
 - Optional `env` contains **descriptions** of environment variables, never their actual values. Each entry requires `required` and `secret` booleans and a `description`.
-- Optional `tools` contains up to 50 objects with `name` and `description`. Optional `permissions` contains up to 30 descriptive strings.
+- Optional `tools` contains up to 50 objects with `name` and `description`. Optional `prerequisites` and `permissions` each contain up to 30 descriptive strings. These enrich the server detail page after review.
+- The submission form asks for documented tools (`name | description`, one per line), setup prerequisites, installation instructions and permissions. A valid root manifest can prefill the tools and prerequisites.
 - Unknown properties, malformed structures, and possible embedded credentials are rejected. Secret detection is heuristic, not a guarantee.
 - Metadata, compatibility and installation commands remain **unverified** until a maintainer reviews the upstream evidence. An archived GitHub repository is a review flag, not proof of server lifecycle.
 
