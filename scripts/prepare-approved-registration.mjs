@@ -17,6 +17,7 @@ if(issue.pull_request||issue.state!=='open')throw Error('Expected an open submis
 const fields=parseSubmissionIssue(issue.body||'');
 if(!fields||!/^\[MCP Submission\]/i.test(issue.title))throw Error('Invalid submission issue');
 if(!issue.labels.some(l=>l.name==='freemcp-approved'))throw Error('Explicit freemcp-approved label required');
+if(issue.locked)throw Error('Locked submission issue requires manual review');
 const parsed=parseRepository(fields.Repository);
 const metadata=await github('/repos/'+parsed.owner+'/'+parsed.repo);
 if(metadata.archived||metadata.disabled)throw Error('Source repository is archived or disabled');
@@ -28,10 +29,16 @@ const manifestResponse=await fetch(api+'/repos/'+parsed.owner+'/'+parsed.repo+'/
 if(!manifestResponse.ok)throw Error('Manifest missing from default branch: '+manifestResponse.status);
 const raw=await manifestResponse.text();
 let manifest=JSON.parse(raw);
-if(manifest.content&&manifest.encoding==='base64')throw Error('Unexpected GitHub API wrapper; raw manifest required');
+if(!manifest||typeof manifest!=='object'||Array.isArray(manifest)||('encoding' in manifest&&'content' in manifest))throw Error('Expected raw JSON manifest, not GitHub contents wrapper');
 const manifestRepo=parseRepository(manifest.repository);
 if(manifestRepo.owner.toLowerCase()!==parsed.owner.toLowerCase()||manifestRepo.repo.toLowerCase()!==parsed.repo.toLowerCase())throw Error('Manifest repository differs from approved issue');
 if(manifest.name!==fields.Name||manifest.category!==fields.Category||manifest.description!==fields.Description||manifest.transport!==fields.Transport)throw Error('Issue and repository manifest disagree; request re-review');
+const installation=manifest.installation;
+if(!installation)throw Error('Installation instructions required');
+const evidence=fields['Installation evidence / instructions'];
+if(!evidence||evidence==='Not supplied')throw Error('Installation evidence missing from approved issue');
+const expected=installation.command?[installation.command,...(installation.args||[])].join(' '):installation.endpoint;
+if(!evidence.includes(expected))throw Error('Installation evidence differs from manifest; request re-review');
 const registration=prepareRegistration(manifest,number);
 writeFileSync('registration-candidate.sql',registration.sql,{mode:0o600});
 writeFileSync('registration-review.json',JSON.stringify({issue:number,repository:fields.Repository,sourceBranch:metadata.default_branch,sourceCommit:sourceSha,serverId:registration.id,reviewedBy:process.env.GITHUB_ACTOR,warning:'NOT DEPLOYED. Check live D1 duplicates and review SQL before applying.'},null,2)+'\n',{mode:0o600});
