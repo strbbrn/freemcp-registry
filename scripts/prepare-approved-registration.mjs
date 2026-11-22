@@ -38,8 +38,14 @@ if(!evidence||evidence==='Not supplied'||!evidence.includes(expected))throw Erro
 const transport=fields.Transport;
 if(command&&transport!=='stdio')throw Error('Command installation requires explicitly documented stdio transport');
 if(endpoint&&!['http','sse'].includes(transport))throw Error('Endpoint requires explicitly documented http or sse transport');
-const manifest={schemaVersion:1,name:fields.Name,description:fields.Description,repository:fields.Repository,category:fields.Category,transport,installation:command?{command,args}:{endpoint}};
+const rawTools=fields['Documented tools'];
+const tools=rawTools&&rawTools!=='Not supplied'?rawTools.split('\n').filter(Boolean).map(line=>{const i=line.indexOf('|');if(i<1)throw Error('Invalid documented tool entry');return {name:line.slice(0,i).trim(),description:line.slice(i+1).trim()};}):[];
+const rawPrerequisites=fields['Setup prerequisites'];
+const prerequisites=rawPrerequisites&&rawPrerequisites!=='Not supplied'?rawPrerequisites.split('\n').map(x=>x.trim()).filter(Boolean):[];
+const rawPermissions=fields['Permissions / security considerations'];
+const permissions=rawPermissions&&rawPermissions!=='Not supplied'?rawPermissions.split('\n').map(x=>x.trim()).filter(Boolean):[];
+const manifest={schemaVersion:1,name:fields.Name,description:fields.Description,repository:fields.Repository,category:fields.Category,transport,installation:command?{command,args}:{endpoint},tools,prerequisites,permissions};
 const registration=prepareRegistration(manifest,number);
 writeFileSync('registration-candidate.sql',registration.sql,{mode:0o600});
-writeFileSync('registration-review.json',JSON.stringify({issue:number,repository:fields.Repository,sourceBranch:metadata.default_branch,sourceCommit:sourceSha,serverId:registration.id,source:'approved-github-issue',installation:manifest.installation,reviewedBy:process.env.GITHUB_ACTOR,warning:'NOT DEPLOYED. Verify issue claims, source commit, live D1 duplicates, installation safety and SQL before applying.'},null,2)+'\n',{mode:0o600});
+writeFileSync('registration-review.json',JSON.stringify({issue:number,repository:fields.Repository,sourceBranch:metadata.default_branch,sourceCommit:sourceSha,serverId:registration.id,source:'approved-github-issue',installation:manifest.installation,tools:manifest.tools,prerequisites:manifest.prerequisites,permissions:manifest.permissions,reviewedBy:process.env.GITHUB_ACTOR,warning:'NOT DEPLOYED. Verify issue claims, source commit, live D1 duplicates, installation safety and SQL before applying.'},null,2)+'\n',{mode:0o600});
 console.log('Created registration candidate for '+registration.id+'. No database writes performed.');
