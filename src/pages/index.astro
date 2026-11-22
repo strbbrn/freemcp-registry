@@ -19,13 +19,13 @@ import BaseLayout from '../layouts/BaseLayout.astro';
  const summary=document.getElementById('registry-summary');
  const make=(tag,cls,value)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(value!=null)el.textContent=value;return el;};
  try {
-  const [serverResponse,categoryResponse]=await Promise.all([fetch('/api/servers?sort=newest&page=1'),fetch('/api/servers?meta=categories')]);
+  const [serverResponse,categoryResponse]=await Promise.all([fetch('/api/servers?sort=newest&page=1&limit=6'),fetch('/api/servers?meta=categories')]);
   if(!serverResponse.ok||!categoryResponse.ok)throw new Error('Registry unavailable');
   const [data,categories]=await Promise.all([serverResponse.json(),categoryResponse.json()]);
-  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||!Array.isArray(categories.categories))throw new Error('Unexpected registry response');
+  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||data.servers.length>6||!Array.isArray(categories.categories))throw new Error('Unexpected registry response');
   summary.textContent=`${data.total} servers across ${categories.categories.length} categories`;
   grid.replaceChildren();
-  for(const server of data.servers.slice(0,6)){
+  for(const server of data.servers){
    const article=make('article','featured-card');
    const category=make('span','',server.category);
    const title=make('h3');
