@@ -47,3 +47,13 @@ export function formatReview(result){
  const lines=[heading+'**'+status+'**','',...result.findings.map(x=>'- ❌ '+x),...result.warnings.map(x=>'- ⚠️ '+x),'','**Maintainer checklist:** Verify repository ownership, license, actual MCP functionality, installation instructions, security and duplicates against live D1 before approval.','','_Automated heuristics are not a security certification. No automatic publication or approval._'];
  return lines.join('\n');
 }
+
+export function parseLegacySubmissionIssue(body){
+ if(typeof body!=='string'||body.length>65000||!body.startsWith('## Server Details\n'))return null;
+ const field=label=>body.match(new RegExp('\\*\\*'+label+':\\*\\*\\s*([^\\n]+)','i'))?.[1]?.trim()||'';
+ const Name=field('Server Name'),Repository=field('GitHub Repository URL'),Description=field('Short Description'),Category=field('Category');
+ if(!Name||!Repository||!Description||!Category)return null;
+ const evidence=body.split('## Additional Context')[1]||'';
+ const Transport=/\bstdio\b/i.test(body)?'stdio':/streamable.http|https?:\/\/[^\s]+\/mcp/i.test(body)?'http':'unknown';
+ return {Name,Repository,Description,Category,Transport,'Installation evidence / instructions':evidence};
+}
