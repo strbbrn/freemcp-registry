@@ -7,7 +7,7 @@ export async function onRequestGet({env}) {
     const {results} = await env.DB.prepare(
       "SELECT id FROM servers WHERE COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only') ORDER BY id"
     ).all();
-    const urls = ['/', '/servers/', '/submit/', ...results
+    const urls = ['/', '/servers/', '/submit/', '/about/', '/faq/', '/privacy/', '/terms/', '/contact/', '/guides/', '/guides/what-is-mcp/', '/guides/install-mcp-server/', '/guides/mcp-vs-api/', ...results
       .filter(row => typeof row.id === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.id))
       .map(row => '/servers/' + row.id)];
     const xml = '<?xml version="1.0" encoding="UTF-8"?>\n'
