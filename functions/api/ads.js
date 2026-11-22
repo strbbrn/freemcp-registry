@@ -4,7 +4,7 @@ export async function onRequestGet({request,env}){
  const url=new URL(request.url);
  const placement=url.searchParams.get('placement')||'home';
  const slot=url.searchParams.get('slot')||'primary';
- if(!['primary','strip','inline','sidebar','bottom'].includes(slot))return respond({error:'Invalid slot'},400);
+ if(!['primary','strip','inline','sidebar','bottom','footer'].includes(slot))return respond({error:'Invalid slot'},400);
  if(!['home','directory','detail'].includes(placement))return respond({error:'Invalid placement'},400);
  try{
   const {results}=await env.DB.prepare(`SELECT id,eyebrow,headline,description,cta_text,target_url,theme,weight,rotation_seconds
