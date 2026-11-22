@@ -1,25 +1,39 @@
-name: Sync GitHub metadata to Production D1
+name: Sync GitHub metadata to D1
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Database to synchronize
+        required: true
+        type: choice
+        options:
+          - preview
+          - production
+        default: preview
   schedule:
     - cron: '17 3 * * *'
 permissions:
   contents: read
 concurrency:
-  group: freemcp-production-metadata-sync
+  group: freemcp-github-metadata-sync
   cancel-in-progress: false
 jobs:
-  sync-production:
+  sync:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ github.event_name == 'schedule' && fromJSON('["preview","production"]') || fromJSON(format('["{0}"]', inputs.environment)) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Sync live D1 records with GitHub
+      - name: Sync GitHub metadata
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: '030baee49692e80fb99fa6f602c846c9'
+          D1_DATABASE_ID: ${{ matrix.environment == 'production' && '21a0f980-a749-4c69-b1b5-3d57d3a646c8' || '1d3540c0-d836-4f8e-b048-fd22d780b46b' }}
         run: node scripts/sync-live-d1-metadata.mjs
