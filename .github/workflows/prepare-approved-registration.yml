@@ -6,6 +6,19 @@ on:
         description: Approved MCP submission issue number
         required: true
         type: number
+      install_command:
+        description: Reviewed executable for stdio MCP (e.g. npx, python, quelllm-mcp); leave blank for remote
+        required: false
+        type: string
+      install_args_json:
+        description: JSON array of reviewed executable arguments, e.g. ["-y","package"]
+        required: false
+        default: '[]'
+        type: string
+      install_endpoint:
+        description: Reviewed HTTPS MCP endpoint; leave blank for stdio
+        required: false
+        type: string
 permissions:
   contents: read
   issues: read
@@ -24,6 +37,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ inputs.issue_number }}
+          INSTALL_COMMAND: ${{ inputs.install_command }}
+          INSTALL_ARGS_JSON: ${{ inputs.install_args_json }}
+          INSTALL_ENDPOINT: ${{ inputs.install_endpoint }}
         run: node scripts/prepare-approved-registration.mjs
       - name: Upload registration candidate for maintainer review
         uses: actions/upload-artifact@v7.0.2
