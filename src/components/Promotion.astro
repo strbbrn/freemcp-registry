@@ -17,6 +17,8 @@ const { placement, slot = 'primary' } = Astro.props;
 <script is:inline>
 (() => {
  for(const slot of document.querySelectorAll('[data-promo-placement]')){
+  if(slot.dataset.promoInitialized==='true')continue;
+  slot.dataset.promoInitialized='true';
   const frame=slot.querySelector('.promo-frame'),headline=slot.querySelector('.promo-headline'),description=slot.querySelector('.promo-description'),eyebrow=slot.querySelector('.promo-eyebrow'),link=slot.querySelector('.promo-link'),cta=slot.querySelector('.promo-cta'),counter=slot.querySelector('.promo-counter'),next=slot.querySelector('.promo-next');
   let ads=[],index=0,timer=null,paused=false;
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
