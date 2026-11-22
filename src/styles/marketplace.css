@@ -42,3 +42,5 @@ html,body{font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoo
 .submit .evidence{border-radius:8px}
 @media(max-width:960px){.directory .results{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:640px){.directory .results{grid-template-columns:1fr}.directory .results .server-row{min-height:220px}.directory .results .server-identity{grid-column:auto}.directory .results .server-category,.directory .results .server-status,.directory .results .server-action{grid-column:auto;grid-row:auto;margin:0}.directory .toolbar{padding:12px}.submit .panel{padding:18px}.submit .steps span{min-width:0;flex:1 1 100%}}
+
+.brand{display:inline-flex;align-items:center;gap:8px}.brand-mark{width:34px;height:34px;display:block;flex-shrink:0;transition:transform .25s ease}.brand:hover .brand-mark{transform:rotate(-7deg)}@media(prefers-reduced-motion:reduce){.brand-mark{transition:none}.brand:hover .brand-mark{transform:none}}
