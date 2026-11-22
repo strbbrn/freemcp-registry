@@ -4,7 +4,7 @@ The homepage and server directory render text-only, animated, first-party promot
 
 ## Setup
 
-Apply `migrations/0007_promotions.sql` and then `migrations/0008_promotion_slots.sql` to the **preview D1 database first**, then production after review. Both migrations are required for the updated API. Cloudflare Pages must bind the same D1 database as `DB`. The migrations create 28 active entries across the primary, strip, inline, sidebar, and bottom slots. All three page types have multiple independent slots: homepage `home/primary` and `home/strip`; directory `directory/primary` and `directory/inline` (inline after the seventh server row, only when seven or more results appear); detail pages `detail/primary`, `detail/sidebar`, and `detail/bottom`. Detail pages use standalone static CSS/JS assets because they are rendered by a Cloudflare Pages Function rather than Astro.
+Apply `migrations/0007_promotions.sql` and then `migrations/0008_promotion_slots.sql` to the **preview D1 database first**, then production after review. Both migrations are required for the updated API. Cloudflare Pages must bind the same D1 database as `DB`. The migrations create 28 active entries across the primary, strip, inline, sidebar, and bottom slots. All three page types have multiple independent slots: homepage `home/primary` and `home/strip`; directory `directory/primary` and `directory/inline` (inline after the seventh server row, only when seven or more results appear); detail pages `detail/sidebar` and `detail/bottom` (the redundant primary landscape banner is intentionally not mounted). Detail pages use standalone static CSS/JS assets because they are rendered by a Cloudflare Pages Function rather than Astro.
 
 ## Edit without deploying
 
