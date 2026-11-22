@@ -1,6 +1,7 @@
 const {CLOUDFLARE_API_TOKEN:cfToken,CLOUDFLARE_ACCOUNT_ID:account,GITHUB_TOKEN:ghToken}=process.env;
 if(!cfToken||!account||!ghToken)throw Error('Missing Cloudflare or GitHub credentials');
-const database='21a0f980-a749-4c69-b1b5-3d57d3a646c8';
+const database=process.env.D1_DATABASE_ID;
+if(!['21a0f980-a749-4c69-b1b5-3d57d3a646c8','1d3540c0-d836-4f8e-b048-fd22d780b46b'].includes(database))throw Error('Unrecognized D1 database ID');
 const quote=s=>"'"+String(s).replaceAll("'","''")+"'";
 async function d1(sql){
  const response=await fetch('https://api.cloudflare.com/client/v4/accounts/'+account+'/d1/database/'+database+'/query',{method:'POST',headers:{Authorization:'Bearer '+cfToken,'Content-Type':'application/json'},body:JSON.stringify({sql})});
