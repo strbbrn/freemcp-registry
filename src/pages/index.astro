@@ -1,34 +1,107 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import { getServers, getCategories } from '../lib/registry';
-import { validateRegistry } from '../lib/registry';
-const featured = getServers().slice(0,6);
-const totalServers=getServers().length;
-const totalCategories=getCategories().length;
-const errors = validateRegistry();
-if (errors.length) throw new Error('Invalid MCP registry: ' + errors.join('; '));
 ---
 <BaseLayout title="FreeMCP 2.0 — Open-source MCP server registry" description="Discover and explore open-source Model Context Protocol servers.">
+  <div class="homepage-glow" aria-hidden="true"></div>
   <section class="container hero">
-    <div class="eyebrow">FREEMCP 2.0</div>
-    <h1>Discover tools.<span> Build better agents.</span></h1>
-    <p>Explore a curated registry of open-source MCP servers, inspect installation guidance, and submit projects for community review.</p>
-    <div class="hero-actions"><a class="submit-link" href="#registry">Explore servers</a><a class="submit-link secondary" href="/submit">Submit a server</a></div>
+    <div class="hero-inner">
+      <div class="hero-badge"><span class="pulse"></span> THE OPEN MCP ECOSYSTEM</div>
+      <h1>Find the right tools<br/>for <span>your AI agents.</span></h1>
+      <p>Discover open-source MCP servers that connect your AI assistants to the tools, data, and services they need.</p>
+      <div class="hero-actions">
+        <a class="hero-primary" href="/servers">Explore MCP servers <span aria-hidden="true">↗</span></a>
+        <a class="hero-secondary" href="/submit">Submit your server <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="hero-trust"><span class="trust-dot"></span> Community-driven <span class="trust-divider">·</span> Open source <span class="trust-divider">·</span> Built for developers</div>
+    </div>
   </section>
-  <section class="container featured" id="registry"><div class="section-head"><div><div class="eyebrow">DISCOVER</div><h2>Explore the registry</h2><p id="registry-summary" aria-live="polite">{totalServers} servers across {totalCategories} categories</p></div><a class="submit-link" href="/servers">Browse all servers →</a></div><div class="featured-grid">{featured.map(server=><article class="featured-card"><span>{server.category}</span><h3><a href={'/servers/'+server.id}>{server.name}</a></h3><p>{server.description}</p></article>)}</div></section><section class="container getting-started" id="how-it-works"><h2>Getting started</h2><p>Browse the registry, review a server's documentation and security considerations, then configure your MCP client using maintainer-backed instructions.</p><a href="/servers">Find an MCP server →</a></section>
+  <section class="container featured" id="registry">
+    <div class="section-head">
+      <div><div class="eyebrow">DISCOVER / LATEST ADDITIONS</div><h2>Recently added <span>MCP servers</span></h2><p id="registry-summary" aria-live="polite">Loading the live registry…</p></div>
+      <a class="view-all" href="/servers">View all servers <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="featured-grid" id="recent-servers" aria-live="polite"><p class="loading-message">Loading recently added servers…</p></div>
+  </section>
+  <section class="container getting-started" id="how-it-works">
+    <div class="eyebrow">GET STARTED</div><h2>Everything your agent needs.<br/><span>One open directory.</span></h2>
+    <div class="steps"><div class="step"><div class="step-icon">01</div><h3>Discover</h3><p>Explore integrations by category, purpose, and maintainer.</p></div><div class="step"><div class="step-icon">02</div><h3>Evaluate</h3><p>Review the source, setup instructions, and security details.</p></div><div class="step"><div class="step-icon">03</div><h3>Connect</h3><p>Configure your MCP client and start building better agents.</p></div></div>
+  </section>
 <script is:inline>
-// D1 is the source of truth for public registry totals; static values are a no-JS fallback.
-(async () => { try { const [serversResponse, categoriesResponse] = await Promise.all([fetch('/api/servers?page=1'), fetch('/api/servers?meta=categories')]); if (!serversResponse.ok || !categoriesResponse.ok) return; const servers = await serversResponse.json(); const categories = await categoriesResponse.json(); const summary = document.getElementById('registry-summary'); if (summary && Number.isInteger(servers.total) && Array.isArray(categories.categories)) summary.textContent = `${servers.total} servers across ${categories.categories.length} categories`; } catch (error) { console.warn('Live registry summary unavailable', error); } })();
+(async () => {
+ const grid=document.getElementById('recent-servers');
+ const summary=document.getElementById('registry-summary');
+ const make=(tag,cls,value)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(value!=null)el.textContent=value;return el;};
+ try {
+  const [serverResponse,categoryResponse]=await Promise.all([fetch('/api/servers?sort=newest&page=1&limit=6'),fetch('/api/servers?meta=categories')]);
+  if(!serverResponse.ok)throw new Error(`Servers API returned HTTP ${serverResponse.status}`);
+  const data=await serverResponse.json();
+  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||data.servers.length>6)throw new Error('Unexpected servers API response');
+  let categoryCount=null;
+  if(categoryResponse.ok){try{const categories=await categoryResponse.json();if(Array.isArray(categories.categories))categoryCount=categories.categories.length;}catch(e){console.warn('Category metadata unavailable',e);}}
+  summary.textContent=categoryCount===null?`${data.total} servers in the live registry`:`${data.total} servers across ${categoryCount} categories`;
+  grid.replaceChildren();
+  for(const server of data.servers){
+   const article=make('article','featured-card');
+   const category=make('span','',server.category);
+   const title=make('h3');
+   const link=make('a','',server.name);
+   link.href='/servers/'+encodeURIComponent(server.id);
+   title.append(link);
+   const description=make('p','',server.description);
+   article.append(category,title,description);
+   if(server.author)article.append(make('div','featured-author',`by ${server.author}`));
+   grid.append(article);
+  }
+  if(!data.servers.length)grid.append(make('p','loading-message','No published servers yet.'));
+ } catch(error){
+  console.warn('Live registry unavailable',error);
+  summary.textContent='Live registry temporarily unavailable';
+  grid.replaceChildren(make('p','loading-message',`Unable to load servers ( ${error.message} ). Please try again shortly.`));
+ }
+})();
 </script>
 </BaseLayout>
 <style>
-.hero{padding:96px 0 76px;border-bottom:1px solid var(--border)}
-.eyebrow{color:var(--accent);font-size:11px;font-weight:800;letter-spacing:.14em}
-h1{font-size:clamp(38px,6vw,76px);line-height:1.08;letter-spacing:-.06em;margin:24px 0}
-h1 span{color:var(--muted)}
-.hero p{max-width:640px;color:var(--muted);line-height:1.7}
-.hero-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:28px}
-.hero-actions a{display:inline-flex;padding:12px 18px;text-decoration:none}
-.secondary{background:transparent;border:1px solid var(--border);color:var(--text)}
-@media(max-width:650px){.hero{padding:64px 0 55px}}
-.featured{padding:64px 0}.section-head{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:25px}.section-head h2,.getting-started h2{font-size:28px;margin:10px 0}.section-head p,.getting-started p{color:var(--muted)}.featured-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}.featured-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:22px}.featured-card span{font-size:12px;color:var(--accent)}.featured-card h3{margin:15px 0;font-size:18px}.featured-card h3 a{text-decoration:none}.featured-card p{font-size:13px;line-height:1.6;color:var(--muted)}.getting-started{padding:50px 0 90px;border-top:1px solid var(--border)}.getting-started p{max-width:650px;line-height:1.7}.getting-started a{color:var(--accent)}</style>
+:global(body){overflow-x:hidden}
+.homepage-glow{position:absolute;z-index:0;pointer-events:none;left:0;right:0;top:56px;height:650px;background:radial-gradient(ellipse 50% 48% at 50% 10%,var(--glow),transparent 80%)}
+.hero{position:relative;z-index:1;min-height:550px;display:flex;align-items:center;justify-content:center;text-align:center;padding:100px 0 100px}
+.hero-inner{max-width:850px}
+.hero-badge{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--border);background:var(--surface);border-radius:100px;padding:8px 14px;color:var(--muted);font:11px 'Geist Mono',monospace;letter-spacing:.08em}
+.pulse,.trust-dot{width:7px;height:7px;background:var(--accent);border-radius:50%;display:inline-block;box-shadow:0 0 12px var(--accent)}
+h1{font-size:clamp(43px,7vw,88px);font-weight:650;line-height:1.07;letter-spacing:-.065em;margin:28px 0 22px}
+h1 span{color:var(--accent)}
+.hero p{max-width:620px;margin:0 auto;color:var(--muted);font-size:clamp(15px,1.6vw,18px);line-height:1.75}
+.hero-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:32px}
+.hero-actions a{display:inline-flex;align-items:center;gap:16px;border-radius:8px;padding:14px 20px;text-decoration:none;font-size:14px;font-weight:600;transition:transform .2s}
+.hero-actions a:hover{transform:translateY(-2px)}
+.hero-primary{background:var(--accent);color:var(--bg)}
+.hero-secondary{border:1px solid var(--border);background:var(--surface);color:var(--text)}
+.hero-trust{margin-top:30px;color:var(--muted);font:11px 'Geist Mono',monospace;display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap}
+.trust-divider{opacity:.5}
+.eyebrow{color:var(--accent);font:11px 'Geist Mono',monospace;letter-spacing:.12em}
+.featured{position:relative;padding:44px 0 100px}
+.section-head{display:flex;align-items:end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+.section-head h2{font-size:clamp(26px,3vw,38px);font-weight:650;letter-spacing:-.045em;margin:12px 0}
+.section-head h2 span,.getting-started h2 span{color:var(--muted)}
+.section-head p{color:var(--muted);font-size:13px;margin:0}
+.view-all{font-size:13px;text-decoration:none;color:var(--accent);padding:10px 0}
+.featured-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.featured-grid :global(.featured-card){display:flex;flex-direction:column;position:relative;min-height:235px;background:linear-gradient(180deg,oklch(1 0 0 / 4%),oklch(1 0 0 / 1%));border:1px solid var(--border);border-radius:12px;padding:22px;transition:transform .2s,border-color .2s,box-shadow .2s}
+.featured-grid :global(.featured-card:hover){transform:translateY(-3px);border-color:var(--accent);box-shadow:0 12px 40px -12px var(--glow)}
+.featured-grid :global(.featured-card span){align-self:flex-start;font:11px 'Geist Mono',monospace;color:var(--muted);background:var(--secondary);border:1px solid var(--border);border-radius:100px;padding:5px 11px}
+.featured-grid :global(.featured-card h3){font-size:17px;letter-spacing:-.025em;margin:23px 0 10px}
+.featured-grid :global(.featured-card h3 a){text-decoration:none}
+.featured-grid :global(.featured-card h3 a:hover){color:var(--accent)}
+.featured-grid :global(.featured-card p){color:var(--muted);font-size:13px;line-height:1.65;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.featured-grid :global(.featured-author){margin-top:auto;padding-top:18px;color:var(--muted);font:12px 'Geist Mono',monospace}
+.loading-message{color:var(--muted);font-size:14px}
+.getting-started{border-top:1px solid var(--border);padding:80px 0 110px}
+.getting-started h2{font-size:clamp(27px,4vw,43px);letter-spacing:-.045em;line-height:1.18;margin:15px 0 35px}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.step{border:1px solid var(--border);border-radius:12px;padding:24px;background:var(--surface)}
+.step-icon{font:13px 'Geist Mono',monospace;color:var(--accent);margin-bottom:26px}
+.step h3{font-size:16px;margin:0 0 10px}
+.step p{font-size:13px;line-height:1.7;color:var(--muted);margin:0}
+@media(max-width:800px){.featured-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.hero{min-height:470px;padding:70px 0 75px}.hero-trust{font-size:10px}.featured-grid,.steps{grid-template-columns:1fr}.featured{padding-bottom:65px}.getting-started{padding:60px 0 75px}.section-head{align-items:start}.view-all{padding:0}}
+</style>

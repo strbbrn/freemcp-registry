@@ -11,9 +11,12 @@ export async function onRequestGet({request,env}) {
  }
  const q=(url.searchParams.get('q')||'').trim().slice(0,120);
  const category=(url.searchParams.get('category')||'').trim().slice(0,100);
- const sort=url.searchParams.get('sort')==='category'?'category':'name';
+ const requestedSort=url.searchParams.get('sort');
+ const sort=requestedSort==='newest'?'newest':requestedSort==='category'?'category':'name';
  const page=Math.min(10000,Math.max(1,Number.parseInt(url.searchParams.get('page')||'1',10)||1));
- const size=24, conditions=["COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')"], bindings=[];
+ const requestedLimit=Number.parseInt(url.searchParams.get('limit')||'24',10);
+ const size=Number.isFinite(requestedLimit)?Math.min(24,Math.max(1,requestedLimit)):24;
+ const conditions=["COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')"], bindings=[];
  if(category){conditions.push('category = ?');bindings.push(category);}
  if(q){
   // FTS5 tokens are escaped as quoted phrases; no raw user-supplied FTS operators.
@@ -26,7 +29,9 @@ export async function onRequestGet({request,env}) {
  try {
   const count=await env.DB.prepare('SELECT COUNT(*) AS total FROM servers'+where).bind(...bindings).first();
   const total=count?.total||0,pages=Math.max(1,Math.ceil(total/size)),current=Math.min(page,pages);
-  const order=sort==='category'?'category COLLATE NOCASE, name COLLATE NOCASE, id':'name COLLATE NOCASE, id';
+  // SQLite rowid tracks insertion order; updates to an existing listing do not make it 'new'.
+  // Do not use updated_at: edits and seed upserts would incorrectly bump old listings.
+  const order=sort==='newest'?'rowid DESC':sort==='category'?'category COLLATE NOCASE, name COLLATE NOCASE, id':'name COLLATE NOCASE, id';
   const data=await env.DB.prepare('SELECT id,name,description,category,author,tags_json,json_extract(details_json, \'$.lifecycle\') AS lifecycle FROM servers'+where+' ORDER BY '+order+' LIMIT ? OFFSET ?').bind(...bindings,size,(current-1)*size).all();
   return json({servers:data.results.map(s=>({id:s.id,name:s.name,description:s.description,category:s.category,author:s.author,tags:JSON.parse(s.tags_json),lifecycle:s.lifecycle||null})),total,page:current,pages,pageSize:size});
  }catch(e){console.error('Registry query failed',e);return json({error:'Registry query failed'},500);}
