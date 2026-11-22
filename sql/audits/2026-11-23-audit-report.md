@@ -26,7 +26,7 @@ Production Cloudflare D1 inventory: 32 listings. This PR supplies a **review-onl
 | `mgm-falcon-quelllm-mcp` | unchanged | Leave lifecycle unset pending individual release verification; repository itself not archived; add security guidance | Proposed correction |
 | `mongodb-mcp` | unchanged | 54 recorded tools; upstream dynamic toolsets need separate exhaustive check | No SQL change |
 | `neon-mcp` | unchanged | 117 recorded tools; profile and access-dependent availability needs validation | No SQL change |
-| `nmap-mcp` | unchanged | Docker command may require local image build; installation not runtime tested | No SQL change |
+| `nmap-mcp` | unchanged | Upstream README confirms Docker image must be built before launching; add explicit build prerequisite | Proposed correction |
 | `notion-mcp` | unchanged | Existing fields retained; full runtime and upstream tool completeness not verified | No SQL change |
 | `playwright-mcp` | 5 → 72 | Replace incomplete tool inventory using upstream documentation/source; add prerequisites | Proposed correction |
 | `postgres-mcp` | 1 → 9 | Replace incomplete tool inventory using upstream documentation/source; migrate archived listing to maintained implementation | Proposed correction |
@@ -42,6 +42,8 @@ Production Cloudflare D1 inventory: 32 listings. This PR supplies a **review-onl
 | `stripe-mcp` | unchanged | Existing fields retained; full runtime and upstream tool completeness not verified | No SQL change |
 
 ## Source links
+
+- Nmap MCP Docker build and tool reference: https://github.com/Vorota-ai/nmap-mcp
 
 - AWS Labs: https://github.com/awslabs/mcp/tree/main/src/bedrock-kb-retrieval-mcp-server
 - Postgres MCP Pro: https://github.com/crystaldba/postgres-mcp
@@ -65,7 +67,7 @@ Production Cloudflare D1 inventory: 32 listings. This PR supplies a **review-onl
 
 ## Verification
 
-The migration updates 16 distinct listings, but the six repository-status-only rows do not set lifecycle. Missing lifecycle values remain unresolved and must not be described as fixed.
+The migration updates 17 distinct listings, but the six repository-status-only rows do not set lifecycle. Missing lifecycle values remain unresolved and must not be described as fixed.
 
 
 After application, re-query each row's top-level description, author, repository URL, summary, installations, security, prerequisites, lifecycle and tools. Validate `json_valid(details_json)` for every row, duplicate tool names, and ensure all 32 records remain present. Check actual detail-page rendering independently.
