@@ -4,7 +4,7 @@ The homepage and server directory render text-only, animated, first-party promot
 
 ## Setup
 
-Apply `migrations/0007_promotions.sql` to the **preview D1 database first**, then production after review. Cloudflare Pages must bind the same D1 database as `DB`. The migration creates twelve active entries: four campaigns for each of `home`, `directory`, and `detail` placements. The `detail` placement is reserved for later detail-page integration; only home and directory are currently mounted.
+Apply `migrations/0007_promotions.sql` to the **preview D1 database first**, then production after review. Cloudflare Pages must bind the same D1 database as `DB`. The migration creates twelve active entries: four campaigns for each of `home`, `directory`, and `detail` placements. All three placements are mounted: home, directory, and the D1-rendered server detail pages. Detail pages use standalone static CSS/JS assets because they are rendered by a Cloudflare Pages Function rather than Astro.
 
 ## Edit without deploying
 
