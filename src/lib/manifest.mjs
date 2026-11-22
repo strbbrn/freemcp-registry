@@ -29,6 +29,7 @@ export function validateManifest(value, expectedRepository) {
   if(!Array.isArray(value.tools)||value.tools.length>50)fail('Invalid tools');
   else for(const tool of value.tools)if(!record(tool)||!keysAllowed(tool,['name','description'])||!validString(tool.name,100)||!validString(tool.description,500))fail('Invalid tool definition');
  }
+ if(value.prerequisites!==undefined&&(!Array.isArray(value.prerequisites)||value.prerequisites.length>30||!value.prerequisites.every(p=>validString(p,200))))fail('Invalid prerequisites');
  if(value.permissions!==undefined&&(!Array.isArray(value.permissions)||value.permissions.length>30||!value.permissions.every(p=>validString(p,200))))fail('Invalid permissions');
  if(value.installation!==undefined){
   const x=value.installation;
