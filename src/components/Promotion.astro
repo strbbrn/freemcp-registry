@@ -1,0 +1,63 @@
+---
+interface Props { placement: 'home' | 'directory' | 'detail'; }
+const { placement } = Astro.props;
+---
+<aside class="promo-slot" data-promo-placement={placement} aria-label="FreeMCP promotions" hidden>
+ <div class="promo-frame" data-theme="violet">
+  <div class="promo-orb" aria-hidden="true"></div>
+  <div class="promo-content">
+   <div class="promo-top"><span class="promo-label">FreeMCP promotion</span><span class="promo-eyebrow"></span></div>
+   <h2 class="promo-headline"></h2>
+   <p class="promo-description"></p>
+   <a class="promo-link" target="_blank" rel="noopener noreferrer sponsored"><span class="promo-cta"></span><span aria-hidden="true"> ↗</span></a>
+  </div>
+  <div class="promo-bottom"><span class="promo-counter" aria-live="off"></span><button class="promo-next" type="button" aria-label="Next promotion">→</button></div>
+ </div>
+</aside>
+<script is:inline>
+(() => {
+ for(const slot of document.querySelectorAll('[data-promo-placement]')){
+  const frame=slot.querySelector('.promo-frame'),headline=slot.querySelector('.promo-headline'),description=slot.querySelector('.promo-description'),eyebrow=slot.querySelector('.promo-eyebrow'),link=slot.querySelector('.promo-link'),cta=slot.querySelector('.promo-cta'),counter=slot.querySelector('.promo-counter'),next=slot.querySelector('.promo-next');
+  let ads=[],index=0,timer=null,paused=false;
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const render=()=>{
+   const ad=ads[index];if(!ad)return;
+   frame.dataset.theme=['violet','cyan','emerald','amber'].includes(ad.theme)?ad.theme:'violet';
+   eyebrow.textContent=ad.eyebrow;headline.textContent=ad.headline;description.textContent=ad.description;cta.textContent=ad.cta_text;link.href=ad.target_url;
+   counter.textContent=ads.length>1?`${index+1} / ${ads.length}`:'';
+   next.hidden=ads.length<2;
+   frame.classList.remove('promo-enter');void frame.offsetWidth;
+   if(!reduced.matches)frame.classList.add('promo-enter');
+  };
+  const schedule=()=>{clearTimeout(timer);if(paused||reduced.matches||document.hidden||ads.length<2)return;timer=setTimeout(()=>{index=(index+1)%ads.length;render();schedule();},Math.max(5,Math.min(30,Number(ads[index].rotation_seconds)||7))*1000)};
+  next.addEventListener('click',()=>{index=(index+1)%ads.length;render();schedule()});
+  slot.addEventListener('mouseenter',()=>{paused=true;clearTimeout(timer)});
+  slot.addEventListener('mouseleave',()=>{paused=false;schedule()});
+  slot.addEventListener('focusin',()=>{paused=true;clearTimeout(timer)});
+  slot.addEventListener('focusout',e=>{if(!slot.contains(e.relatedTarget)){paused=false;schedule()}});
+  document.addEventListener('visibilitychange',schedule);
+  reduced.addEventListener('change',schedule);
+  fetch('/api/ads?placement='+encodeURIComponent(slot.dataset.promoPlacement)).then(r=>r.ok?r.json():{ads:[]}).then(data=>{
+   ads=(Array.isArray(data.ads)?data.ads:[]).filter(a=>/^https:\/\/[a-z0-9.-]+(?:\/|$)/i.test(a.target_url)&&a.headline);
+   if(!ads.length)return;
+   // Expand weighted entries without allowing unlimited client-side allocation.
+   ads=ads.flatMap(a=>Array(Math.max(1,Math.min(20,Number(a.weight)||1))).fill(a));
+   for(let i=ads.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[ads[i],ads[j]]=[ads[j],ads[i]]}
+   slot.hidden=false;render();schedule();
+  }).catch(()=>{});
+ }
+})();
+</script>
+<style>
+.promo-slot{margin:30px auto;max-width:1200px}.promo-slot[hidden]{display:none}
+.promo-frame{--p:#9d87ff;--q:#4937a8;position:relative;isolation:isolate;overflow:hidden;border:1px solid color-mix(in srgb,var(--p) 35%,transparent);border-radius:16px;min-height:190px;padding:25px 30px;background:radial-gradient(circle at 90% 30%,color-mix(in srgb,var(--q) 45%,transparent),transparent 50%),linear-gradient(120deg,#101125,#0a0b17);color:#f8f9ff;box-shadow:0 12px 35px #0002}
+.promo-frame[data-theme=cyan]{--p:#63d7ed;--q:#125a75}.promo-frame[data-theme=emerald]{--p:#75e4ba;--q:#14634a}.promo-frame[data-theme=amber]{--p:#ffd18a;--q:#805018}
+.promo-frame:before{content:'';position:absolute;inset:-150%;pointer-events:none;z-index:-1;background:conic-gradient(from 0deg,transparent 0 60%,color-mix(in srgb,var(--p) 9%,transparent) 68%,transparent 75%);animation:promo-sweep 12s linear infinite}
+.promo-orb{position:absolute;width:260px;height:260px;right:-75px;top:-100px;border-radius:50%;border:1px solid color-mix(in srgb,var(--p) 30%,transparent);box-shadow:0 0 0 34px color-mix(in srgb,var(--p) 4%,transparent),0 0 0 74px color-mix(in srgb,var(--p) 3%,transparent);pointer-events:none;animation:promo-float 6s ease-in-out infinite}
+.promo-content{position:relative;z-index:1;max-width:780px}.promo-top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:20px}.promo-label{font-size:10px;letter-spacing:.08em;color:#c4c5d5;border:1px solid #ffffff29;border-radius:30px;padding:5px 10px}.promo-eyebrow{font-size:10px;font-weight:750;letter-spacing:.15em;color:var(--p)}.promo-headline{font-size:clamp(25px,3.8vw,43px);letter-spacing:-.055em;line-height:1.1;margin:0 0 11px;font-weight:750}.promo-description{font-size:13px;line-height:1.6;color:#c5c7d9;margin:0 0 17px}.promo-link{color:var(--p);font-weight:700;font-size:13px;text-decoration:none}.promo-link:hover{text-decoration:underline}.promo-link:focus-visible,.promo-next:focus-visible{outline:2px solid var(--p);outline-offset:4px}
+.promo-bottom{position:absolute;right:22px;bottom:19px;display:flex;align-items:center;gap:12px;color:#b8b9ca;font-size:11px}.promo-next{cursor:pointer;border:1px solid #ffffff40;border-radius:50%;height:32px;width:32px;background:#ffffff12;color:#fff;font-size:18px}.promo-next:hover{background:#ffffff28}
+.promo-enter .promo-content{animation:promo-in .5s ease both}
+@keyframes promo-in{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}@keyframes promo-float{50%{transform:translate(-10px,12px)}}@keyframes promo-sweep{to{transform:rotate(360deg)}}
+@media(max-width:600px){.promo-frame{padding:22px 20px 55px;min-height:210px}.promo-orb{opacity:.45}.promo-bottom{bottom:14px}.promo-slot{margin:20px auto}}
+@media(prefers-reduced-motion:reduce){.promo-frame:before,.promo-orb,.promo-enter .promo-content{animation:none!important}}
+</style>
