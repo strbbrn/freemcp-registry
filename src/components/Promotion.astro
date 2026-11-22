@@ -1,5 +1,5 @@
 ---
-interface Props { placement: 'home' | 'directory' | 'detail'; slot?: 'primary' | 'strip' | 'inline' | 'sidebar' | 'bottom'; }
+interface Props { placement: 'home' | 'directory' | 'detail'; slot?: 'primary' | 'strip' | 'inline' | 'sidebar' | 'bottom' | 'footer'; }
 const { placement, slot = 'primary' } = Astro.props;
 ---
 <aside class="promo-slot" data-promo-placement={placement} data-promo-slot={slot} data-format={slot} aria-label="FreeMCP promotions" hidden>
@@ -63,4 +63,5 @@ const { placement, slot = 'primary' } = Astro.props;
 @media(max-width:600px){.promo-frame{padding:22px 20px 55px;min-height:210px}.promo-orb{opacity:.45}.promo-bottom{bottom:14px}.promo-slot{margin:20px auto}}
 @media(prefers-reduced-motion:reduce){.promo-frame:before,.promo-orb,.promo-enter .promo-content{animation:none!important}}
 .promo-slot[data-format=strip] .promo-frame{min-height:115px;padding:17px 22px}.promo-slot[data-format=strip] .promo-top{margin-bottom:7px}.promo-slot[data-format=strip] .promo-headline{font-size:clamp(20px,2.5vw,28px);margin-bottom:5px}.promo-slot[data-format=strip] .promo-description{margin-bottom:8px}.promo-slot[data-format=strip] .promo-orb{opacity:.35}.promo-slot[data-format=inline] .promo-frame{min-height:120px;padding:18px 22px;border-radius:9px}.promo-slot[data-format=inline] .promo-headline{font-size:clamp(19px,2.3vw,27px)}.promo-slot[data-format=inline] .promo-top{margin-bottom:10px}.promo-slot[data-format=inline] .promo-description{margin-bottom:9px}.promo-slot[data-format=inline] .promo-orb{opacity:.25}.promo-slot[data-format=strip] .promo-bottom,.promo-slot[data-format=inline] .promo-bottom{bottom:12px;right:12px}.promo-slot[data-format=strip],.promo-slot[data-format=inline]{margin:15px auto}@media(max-width:600px){.promo-slot[data-format=strip] .promo-frame,.promo-slot[data-format=inline] .promo-frame{padding-bottom:49px}}
+.promo-slot[data-format=footer]{width:min(1160px,calc(100% - 36px));margin:20px auto 32px}.promo-slot[data-format=footer] .promo-frame{min-height:110px;padding:20px 90px 20px 24px;border-radius:12px}.promo-slot[data-format=footer] .promo-top{margin-bottom:7px}.promo-slot[data-format=footer] .promo-headline{font-size:clamp(20px,2.6vw,29px);margin-bottom:6px}.promo-slot[data-format=footer] .promo-description{margin-bottom:7px}.promo-slot[data-format=footer] .promo-orb{opacity:.25}@media(max-width:600px){.promo-slot[data-format=footer] .promo-frame{padding:18px 18px 52px}}
 </style>
