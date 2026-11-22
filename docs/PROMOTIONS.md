@@ -4,7 +4,7 @@ The homepage and server directory render text-only, animated, first-party promot
 
 ## Setup
 
-Apply `migrations/0007_promotions.sql` to the **preview D1 database first**, then production after review. Cloudflare Pages must bind the same D1 database as `DB`. The migration creates twelve active entries: four campaigns for each of `home`, `directory`, and `detail` placements. All three placements are mounted: home, directory, and the D1-rendered server detail pages. Detail pages use standalone static CSS/JS assets because they are rendered by a Cloudflare Pages Function rather than Astro.
+Apply `migrations/0007_promotions.sql` and then `migrations/0008_promotion_slots.sql` to the **preview D1 database first**, then production after review. Both migrations are required for the updated API. Cloudflare Pages must bind the same D1 database as `DB`. The migrations create 28 active entries across the primary, strip, inline, sidebar, and bottom slots. All three page types have multiple independent slots: homepage `home/primary` and `home/strip`; directory `directory/primary` and `directory/inline` (inline after the seventh server row, only when seven or more results appear); detail pages `detail/primary`, `detail/sidebar`, and `detail/bottom`. Detail pages use standalone static CSS/JS assets because they are rendered by a Cloudflare Pages Function rather than Astro.
 
 ## Edit without deploying
 
@@ -14,7 +14,7 @@ UPDATE promotions SET status='paused' WHERE id='creditcard-home';
 UPDATE promotions SET rotation_seconds=10, weight=2 WHERE id='autonomousagents-directory';
 ```
 
-Changes become visible after the API cache expires (up to 60 seconds). Use one row per campaign and placement. `status` is `draft`, `active`, or `paused`; `starts_at` and `ends_at` are optional UTC SQLite datetime strings. `weight` is between 1 and 20 and `rotation_seconds` is between 5 and 30.
+Changes become visible after the API cache expires (up to 60 seconds). Use one row per campaign, placement and slot. The API accepts `placement=home|directory|detail` and `slot=primary|strip|inline|sidebar|bottom`. `status` is `draft`, `active`, or `paused`; `starts_at` and `ends_at` are optional UTC SQLite datetime strings. `weight` is between 1 and 20 and `rotation_seconds` is between 5 and 30.
 
 The starter destination URLs are the four supplied domains. **Verify they lead to suitable landing pages** before production deployment, especially the domains offered for sale. Change `target_url` in D1 when an inquiry page becomes available.
 
