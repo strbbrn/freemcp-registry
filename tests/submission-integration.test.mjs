@@ -4,13 +4,15 @@ import {issueContent} from '../src/lib/submission.mjs';
 import {parseSubmissionIssue,parseLegacySubmissionIssue,reviewSubmission,formatReview} from '../src/lib/submission-review.mjs';
 import {prepareRegistration} from '../src/lib/registration.mjs';
 
-const manifest={schemaVersion:1,name:'Integration MCP',description:'Integration-only example',repository:'https://github.com/example/integration-mcp',category:'Development',transport:'stdio',installation:{command:'npx',args:['-y','integration-mcp']},permissions:['Read-only']};
-const fields={repository:manifest.repository,name:manifest.name,description:manifest.description,category:manifest.category,transport:manifest.transport,docs:'',installation:'npx -y integration-mcp',permissions:'Read-only'};
+const manifest={schemaVersion:1,name:'Integration MCP',description:'Integration-only example',repository:'https://github.com/example/integration-mcp',category:'Development',transport:'stdio',installation:{command:'npx',args:['-y','integration-mcp']},permissions:['Read-only'],tools:[{name:'list_items',description:'List available items'}],prerequisites:['Node.js 20+']};
+const fields={repository:manifest.repository,name:manifest.name,description:manifest.description,category:manifest.category,transport:manifest.transport,docs:'',installation:'npx -y integration-mcp',permissions:'Read-only',tools:'list_items | List available items',prerequisites:'Node.js 20+'};
 
 test('Submission → issue → automated triage → SQL candidate (no D1 writes)',()=>{
  const body=issueContent(fields,[]);
  const parsed=parseSubmissionIssue(body);
  assert.equal(parsed.Repository,manifest.repository);
+ assert.equal(parsed['Documented tools'],'list_items | List available items');
+ assert.equal(parsed['Setup prerequisites'],'Node.js 20+');
  const triage=reviewSubmission(body);
  assert.equal(triage.recognized,true);
  assert.equal(triage.passed,true,JSON.stringify(triage.findings));
@@ -19,6 +21,9 @@ test('Submission → issue → automated triage → SQL candidate (no D1 writes)
  assert.match(candidate.sql,/INSERT INTO servers/);
  assert.match(candidate.sql,/REVIEW REQUIRED/);
  assert.equal(candidate.details.review.status,'pending-publication');
+ assert.deepEqual(candidate.details.tools,manifest.tools);
+ assert.deepEqual(candidate.details.prerequisites,manifest.prerequisites);
+ assert.deepEqual(candidate.details.security,manifest.permissions);
 });
 test('Duplicate or suspicious submission cannot pass preliminary triage',()=>{
  const body=issueContent(fields,[]);
