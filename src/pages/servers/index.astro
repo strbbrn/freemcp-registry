@@ -24,6 +24,8 @@ const search=document.getElementById('registry-query');
 const category=document.getElementById('registry-category');
 const sort=document.getElementById('registry-sort');
 const results=document.getElementById('registry-results');
+// Keep persistent references: render() moves these nodes into the results list.
+const inlineAds=Array.from(document.querySelectorAll('.directory-inline-ad'));
 const count=document.getElementById('registry-count');
 const previous=document.getElementById('previous-page');
 const next=document.getElementById('next-page');
@@ -87,7 +89,7 @@ async function render(){
    const action=element('a','View details →','server-action');action.href=link.href;action.setAttribute('aria-label','View '+s.name+' details');
    row.append(identity,categoryCell,status,action);results.append(row);
   }
-  for(const inline of document.querySelectorAll('.directory-inline-ad')){
+  for(const inline of inlineAds){
    const position=Number(inline.dataset.inlinePosition);
    if(visible.length>=position){
     const anchor=results.querySelectorAll('.server-row')[position-1];
@@ -105,6 +107,7 @@ async function render(){
  }catch(error){
   if(currentRequest!==requestNumber)return;
   results.replaceChildren(element('p','The registry is temporarily unavailable. Please try again shortly.'));
+  for(const inline of inlineAds){inline.hidden=true;results.append(inline);}
   count.textContent='Unable to load servers';
   indicator.textContent='';previous.disabled=true;next.disabled=true;
   console.error('Registry request failed',error);
