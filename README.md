@@ -2,7 +2,7 @@
 
 **A community-curated directory of open-source Model Context Protocol (MCP) servers.**
 
-[Live site](https://freemcp.in) · [Explore servers](https://freemcp.in/servers) · [Submit a server](https://freemcp.in/submit) · [Manifest schema](docs/SUBMISSION_SCHEMA.md)
+[Live site](https://freemcp.in) · [Explore servers](https://freemcp.in/servers) · [Submit a server](https://freemcp.in/submit) · [freemcp.json v1 JSON Schema](schemas/freemcp-v1.schema.json) · [Manifest guide](docs/SUBMISSION_SCHEMA.md)
 
 FreeMCP is built with **Astro + Cloudflare Pages Functions + Cloudflare D1**. Published listings come from a live database, not the old static `src/data/registry.json`. Listings are curated, but are **not** automatically runtime-tested or security-certified.
 
@@ -99,7 +99,7 @@ Maintainers may add a **`freemcp.json` file at the root of their public GitHub r
 
 Environment variables under `installation.env` contain **descriptions**, not actual secret values. Each variable requires `required` (boolean), `secret` (boolean), and `description` (string). Unknown properties and suspected embedded credentials are rejected.
 
-**Authoritative references:** [JSON Schema](schemas/freemcp-v1.schema.json) · [Manifest documentation](docs/SUBMISSION_SCHEMA.md) · [Submission moderation](docs/SUBMISSION_MODERATION.md).
+**Official freemcp.json references:** [Version 1 JSON Schema](schemas/freemcp-v1.schema.json) · [Full manifest specification and examples](docs/SUBMISSION_SCHEMA.md) · [Submission moderation](docs/SUBMISSION_MODERATION.md). Copy the examples above into a file named `freemcp.json` at the root of your own public GitHub repository; do not place the manifest in this registry repository.
 
 ## Publication workflow
 
