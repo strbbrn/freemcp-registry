@@ -1,6 +1,7 @@
 import {parseRepository,secretPattern,securityHints,validateDocumentationUrl} from './submission.mjs';
 
 const sectionNames=['Repository','Name','Category','Description','Transport','Documentation','Installation evidence / instructions','Permissions / security considerations'];
+const enrichmentSections=['Documented tools','Setup prerequisites'];
 const categories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
 const transports=['stdio','http','sse','unknown'];
 export function parseSubmissionIssue(body){
@@ -11,7 +12,7 @@ export function parseSubmissionIssue(body){
   sections.set(match[1],match[2].trim());
  }
  if(!sectionNames.every(key=>sections.has(key)))return null;
- return Object.fromEntries(sectionNames.map(key=>[key,sections.get(key)]));
+ return Object.fromEntries([...sectionNames,...enrichmentSections].map(key=>[key,sections.get(key)||'Not supplied']));
 }
 export function reviewSubmission(body,existing=[]){
  const fields=parseSubmissionIssue(body);
@@ -27,7 +28,11 @@ export function reviewSubmission(body,existing=[]){
  if(!categories.includes(fields.Category))findings.push('Invalid category');
  if(!transports.includes(fields.Transport))findings.push('Invalid transport');
  if(fields.Documentation!=='Not supplied')try{validateDocumentationUrl(fields.Documentation);}catch{findings.push('Invalid documentation URL');}
- const submitted=[fields.Name,fields.Description,fields['Installation evidence / instructions'],fields['Permissions / security considerations']].join('\n');
+ const submitted=[fields.Name,fields.Description,fields['Installation evidence / instructions'],fields['Permissions / security considerations'],fields['Documented tools'],fields['Setup prerequisites']].join('\n');
+ const tools=fields['Documented tools']==='Not supplied'?[]:fields['Documented tools'].split('\n').filter(Boolean);
+ if(tools.length>50||tools.some(line=>{const i=line.indexOf('|');return i<1||!line.slice(0,i).trim()||!line.slice(i+1).trim()||line.slice(0,i).trim().length>100||line.slice(i+1).trim().length>500;}))findings.push('Invalid documented tools format');
+ const prerequisites=fields['Setup prerequisites']==='Not supplied'?[]:fields['Setup prerequisites'].split('\n').filter(Boolean);
+ if(prerequisites.length>30||prerequisites.some(x=>x.trim().length===0||x.length>200))findings.push('Invalid setup prerequisites');
  if(secretPattern.test(body))findings.push('Possible credential or private key detected; redact issue immediately');
  warnings.push(...securityHints(submitted));
  if(canonical){
