@@ -9,6 +9,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 <label>What does it do? <em>Required</em><textarea name="description" rows="3" required maxlength="1200" placeholder="Describe what your server lets AI assistants do."></textarea></label>
 <div class="fields"><label>Transport<select name="transport"><option value="unknown">Not sure</option><option value="stdio">stdio</option><option value="http">Streamable HTTP</option><option value="sse">Legacy SSE</option></select></label><label>Documentation URL <span>(optional)</span><input name="docs" type="url" placeholder="https://github.com/owner/repository#readme"/></label></div>
 <label>Installation instructions <span>(optional)</span><textarea name="installation" rows="3" maxlength="3000" placeholder="Paste documented setup instructions or link to a README section. Never include API keys or tokens."></textarea></label>
+<label>Documented MCP tools <span>(recommended · one per line: tool_name | What it does)</span><textarea name="tools" rows="5" maxlength="12000" placeholder="search_issues | Search project issues&#10;create_issue | Create a new issue"></textarea></label>
+<label>Setup prerequisites <span>(recommended · one per line)</span><textarea name="prerequisites" rows="3" maxlength="3000" placeholder="Node.js 20+&#10;GitHub account with repository access"></textarea></label>
 <label>Permissions and risks <span>(optional)</span><textarea name="permissions" rows="3" maxlength="2000" placeholder="E.g. read/write filesystem access, GitHub repository permissions, network access."></textarea></label>
 <div id="security-panel" class="evidence" hidden><strong>Submission review flags (heuristic only)</strong><p id="security-message"></p></div><div class="section-heading review-heading"><span class="section-number">03</span><div><h2>Submit for review</h2><p>Your submission opens a GitHub issue for manual review. It will not be published automatically.</p></div></div><label class="confirm"><input type="checkbox" name="confirm" required/><span>I confirm that I have the right to submit this project and that no credentials or secrets are included.</span></label>
 <p id="form-error" role="alert" class="error" hidden></p><button class="primary" type="submit">Review submission on GitHub ↗</button><p class="hint">This opens a prefilled GitHub issue for review. Nothing is automatically approved or published. GitHub sign-in may be required.</p></form></div>
@@ -64,6 +66,8 @@ analyze?.addEventListener('click',async()=>{
   const transport=form.elements.namedItem('transport') as HTMLSelectElement;
   const installation=form.elements.namedItem('installation') as HTMLTextAreaElement;
   const permissions=form.elements.namedItem('permissions') as HTMLTextAreaElement;
+  const toolsField=form.elements.namedItem('tools') as HTMLTextAreaElement;
+  const prerequisitesField=form.elements.namedItem('prerequisites') as HTMLTextAreaElement;
   let source='GitHub repository metadata only. No verified installation or compatibility information.';
   let sourceUrl=canonical;
   try{
@@ -80,6 +84,8 @@ analyze?.addEventListener('click',async()=>{
     if(manifest.transport)transport.value=String(manifest.transport);
     if(manifest.installation&&!installation.value.trim())installation.value='Maintainer-provided configuration (review before use): '+JSON.stringify(manifest.installation);
     if(Array.isArray(manifest.permissions)&&!permissions.value.trim())permissions.value=permissionLines(manifest.permissions);
+    if(Array.isArray(manifest.tools)&&!toolsField.value.trim())toolsField.value=manifest.tools.map((t:{name:string,description:string})=>t.name+' | '+t.description).join('\n');
+    if(Array.isArray(manifest.prerequisites)&&!prerequisitesField.value.trim())prerequisitesField.value=manifest.prerequisites.join('\n');
     source='Valid freemcp.json manifest found on branch '+selectedBranch+'. Fields are maintainer-provided, not independently verified.';
     sourceUrl=canonical+'/blob/'+selectedBranch.split('/').map(encodeURIComponent).join('/')+'/freemcp.json';
    }else if(manifestResponse.status!==404){source='Repository loaded; manifest could not be retrieved (GitHub HTTP '+manifestResponse.status+').';}
@@ -121,10 +127,14 @@ form?.addEventListener('submit',(event)=>{
  catch{error.hidden=false;error.textContent='Enter a GitHub repository URL without a username, password, or subdirectory, such as https://github.com/owner/repository.';return;}
  const docs=value('docs');
  try{validateDocumentationUrl(docs);}catch{error.hidden=false;error.textContent='Documentation URL must be HTTPS and must not contain a username or password.';return;}
- const submittedText=[value('name'),value('description'),value('installation'),value('permissions')].join(String.fromCharCode(10));
+ const submittedText=[value('name'),value('description'),value('installation'),value('permissions'),value('tools'),value('prerequisites')].join(String.fromCharCode(10));
  if(secretPattern.test(submittedText)){error.hidden=false;error.textContent='Possible credential or private key detected. Remove secrets before submitting. This check is not exhaustive.';return;}
+ const toolLines=value('tools').split('\n').map(x=>x.trim()).filter(Boolean);
+ if(toolLines.length>50||toolLines.some(x=>{const i=x.indexOf('|');return i<1||!x.slice(0,i).trim()||!x.slice(i+1).trim()||x.slice(0,i).trim().length>100||x.slice(i+1).trim().length>500;})){error.hidden=false;error.textContent='Enter up to 50 tools, one per line: tool_name | Description (maximum 100/500 characters).';return;}
+ const prerequisiteLines=value('prerequisites').split('\n').map(x=>x.trim()).filter(Boolean);
+ if(prerequisiteLines.length>30||prerequisiteLines.some(x=>x.length>200)){error.hidden=false;error.textContent='Enter up to 30 prerequisites, maximum 200 characters each.';return;}
  const finalFlags=Array.from(new Set([...repoFlags,...securityHints(submittedText)]));
- const body=issueContent({repository:repo.toString(),name:value('name'),category:value('category'),description:value('description'),transport:value('transport'),docs,installation:value('installation'),permissions:value('permissions')},finalFlags);
+ const body=issueContent({repository:repo.toString(),name:value('name'),category:value('category'),description:value('description'),transport:value('transport'),docs,installation:value('installation'),permissions:value('permissions'),tools:value('tools'),prerequisites:value('prerequisites')},finalFlags);
  const title='[MCP Submission] '+value('name');
  const url='https://github.com/strbbrn/freemcp-registry/issues/new?'+new URLSearchParams({title,body}).toString();
  error.hidden=true;
