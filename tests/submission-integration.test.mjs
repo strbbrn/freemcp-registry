@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {issueContent} from '../src/lib/submission.mjs';
-import {parseSubmissionIssue,reviewSubmission,formatReview} from '../src/lib/submission-review.mjs';
+import {parseSubmissionIssue,parseLegacySubmissionIssue,reviewSubmission,formatReview} from '../src/lib/submission-review.mjs';
 import {prepareRegistration} from '../src/lib/registration.mjs';
 
 const manifest={schemaVersion:1,name:'Integration MCP',description:'Integration-only example',repository:'https://github.com/example/integration-mcp',category:'Development',transport:'stdio',installation:{command:'npx',args:['-y','integration-mcp']},permissions:['Read-only']};
@@ -24,4 +24,25 @@ test('Duplicate or suspicious submission cannot pass preliminary triage',()=>{
  const body=issueContent(fields,[]);
  assert.equal(reviewSubmission(body,[{id:'existing',githubUrl:manifest.repository}]).passed,false);
  assert.equal(reviewSubmission(body.replace('npx -y integration-mcp','password=abcdefghijklmnop')).passed,false);
+});
+
+test('Legacy QuelLLM-style issue can produce a candidate without freemcp.json',()=>{
+ const body=[
+  '## Server Details',
+  '**Server Name:** QuelLLM MCP',
+  '**GitHub Repository URL:** https://github.com/MGM-FALCON/quelllm-mcp',
+  '**Short Description:** Free model catalogue and VRAM estimation MCP server.',
+  '**Category:** Utilities',
+  'The server uses stdio transport.',
+  '## Additional Context',
+  'Run quelllm-mcp in an MCP-compatible client.'
+ ].join('\n');
+ const parsed=parseLegacySubmissionIssue(body);
+ assert.equal(parsed.Name,'QuelLLM MCP');
+ assert.equal(parsed.Transport,'stdio');
+ assert.ok(parsed['Installation evidence / instructions'].includes('quelllm-mcp'));
+ const candidate=prepareRegistration({schemaVersion:1,name:parsed.Name,repository:parsed.Repository,description:parsed.Description,category:parsed.Category,transport:parsed.Transport,installation:{command:'quelllm-mcp',args:[]}},3);
+ assert.equal(candidate.id,'mgm-falcon-quelllm-mcp');
+ assert.equal(candidate.details.review.status,'pending-publication');
+ assert.match(candidate.sql,/REVIEW REQUIRED/);
 });
