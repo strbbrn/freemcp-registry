@@ -1,4 +1,5 @@
 ---
+import Promotion from '../components/Promotion.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 <BaseLayout title="FreeMCP 2.0 — Open-source MCP server registry" description="Discover and explore open-source Model Context Protocol servers.">
@@ -22,6 +23,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     </div>
     <div class="featured-grid" id="recent-servers" aria-live="polite"><p class="loading-message">Loading recently added servers…</p></div>
   </section>
+  <div class="container"><Promotion placement="home" /></div>
   <section class="container getting-started" id="how-it-works">
     <div class="eyebrow">GET STARTED</div><h2>Everything your agent needs.<br/><span>One open directory.</span></h2>
     <div class="steps"><div class="step"><div class="step-icon">01</div><h3>Discover</h3><p>Explore integrations by category, purpose, and maintainer.</p></div><div class="step"><div class="step-icon">02</div><h3>Evaluate</h3><p>Review the source, setup instructions, and security details.</p></div><div class="step"><div class="step-icon">03</div><h3>Connect</h3><p>Configure your MCP client and start building better agents.</p></div></div>
