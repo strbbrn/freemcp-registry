@@ -37,3 +37,9 @@ Tool inventory counts in the proposed rows: Filesystem **15**, Memory **9**, Pla
 The first 12 transformations intentionally preserve some missing prerequisites/security fields until later updates in the same migration: Fetch prerequisites are populated by statement 13; Sequential Thinking prerequisites by statement 14; QuelLLM security by statement 15.
 
 All 20 updated statements were rechecked with production D1 `EXPLAIN`: **20/20 passed, 0 changes**. This is not a full transaction simulation and no production write was performed.
+
+## Automated end-to-end SQL fixture regression — PASS
+
+GitHub Actions [Audit SQL regression, run 45103794899](https://github.com/strbbrn/freemcp-registry/actions/runs/45103794899) completed **successfully**. The test executes the snapshot and all 20 UPDATE statements on 32 in-memory SQLite fixture records, verifies JSON structure, inventory counts and unchanged rows, executes the rollback SQL, and confirms all 17 modified records are restored.
+
+The new pre-migration snapshot DDL also compiled with production D1 `EXPLAIN` without any write. The snapshot is intentionally persistent so rollback is possible; confirm backup provenance before using rollback in a later deployment.
