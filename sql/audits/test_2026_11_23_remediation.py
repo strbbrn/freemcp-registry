@@ -28,7 +28,7 @@ for sid in IDS:
                  (sid,sid,"test","Utilities","test","[]","https://github.com/example/repo",json.dumps(details)))
 conn.commit()
 sql = SQL.read_text(encoding="utf-8")
-statements = [x.strip() for x in sql.split(";") if x.strip()]
+statements = [line.strip().rstrip(";") for line in sql.splitlines() if line.strip()]
 updates = [x for x in statements if x.startswith("UPDATE servers SET")]
 assert len(updates) == 20, f"Expected 20 updates, got {len(updates)}"
 targets = set(re.findall(r"WHERE id = '([^']+)'", sql))
