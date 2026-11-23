@@ -105,3 +105,10 @@ This is a **literal name-occurrence check only**, not proof that tools exist at 
 | Stripe | 0/15 | Root Stripe AI README does not list hosted MCP tool names; use Stripe MCP documentation |
 
 The numbers above **must not be represented as runtime validation**. They identify documentation coverage and gaps for follow-up; no tool was removed based solely on absence from a root README.
+
+
+## Registry admission-policy conflict (requires owner decision)
+
+The repository's public README describes FreeMCP as a registry of **100% free and open-source MCP servers**, with a public repository and recognized OSS license as submission requirements. Several existing listings instead use vendor-hosted OAuth HTTP endpoints (e.g., Linear, Notion, Slack, Stripe, Neon, Browserbase, Cloudflare). An open-source SDK, client library, or adjacent plugin repository **does not establish that the hosted MCP server implementation is open source**. Free use of an MCP endpoint also does not prove its underlying API has no usage charges.
+
+This is a **policy-verification gap**, not evidence that all named vendors violate the policy. Before certifying the entire registry, either (a) verify each hosted server's source license and free core usage, (b) explicitly broaden the directory's admission criteria to include free-to-connect proprietary hosted MCP services with transparent pricing disclosures, or (c) unlist entries that cannot meet the published rules. Do not silently delete or relabel vendor listings as open-source without evidence.
