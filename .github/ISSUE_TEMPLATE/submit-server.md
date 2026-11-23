@@ -1,40 +1,51 @@
 ---
-name: "📬 Submit a Server"
-about: Submit a free, open-source MCP server to the FreeMCP registry
-title: "Add: [Server Name]"
+name: "Submit an MCP server (detailed)"
+about: "Submit a free, open-source MCP server; website form is recommended"
+title: "[MCP Submission] "
 labels: ["submission", "new-server"]
 assignees: strbbrn
 ---
 
-## Server Details
+> **Recommended:** Use the [FreeMCP submission form](https://freemcp.in/submit) to analyze your public repository and generate a complete submission. If submitting directly here, replace all example values below. Do not include secrets.
 
-**Server Name:**
-<!-- e.g. "Shodan MCP Server" -->
+## MCP server submission
 
-**GitHub Repository URL:**
-<!-- e.g. https://github.com/author/repo -->
+### Repository
+https://github.com/owner/repository
 
-**Author / Maintainer:**
-<!-- GitHub username -->
+### Name
+Server name
 
-**Short Description:**
-<!-- 1-2 sentences about what this server does and why it's useful for AI agents -->
+### Category
+Development
 
-**Category:**
-<!-- Pick one: Database | Development | Security | DevOps | Utilities | Search | Communication | Cloud -->
+### Description
+Describe what the MCP server enables an AI assistant to do.
 
-**Tags:**
-<!-- Comma-separated, e.g.: shodan, asm, recon, devsecops, langgraph -->
+### Transport
+unknown
 
-## Checklist
+### Documentation
+Not supplied
 
-Please confirm the following before submitting:
+### Installation evidence / instructions
+Not supplied
 
-- [ ] The server is **100% free** and open source (no paid tiers or API key paywalls for core functionality)
-- [ ] The GitHub repo has a recognized **open-source license** (MIT, Apache 2.0, GPL, etc.)
-- [ ] The server implements the **Model Context Protocol** standard
-- [ ] The repo has a working **README** with installation and usage instructions
-- [ ] I've checked the [live registry](https://freemcp.in) and this server is **not already listed**
+### Permissions / security considerations
+Not supplied
 
-## Additional Context
-<!-- Optional: any notes about compatibility, unique features, or why this server is valuable for the community -->
+### Documented tools
+Not supplied
+
+### Setup prerequisites
+Not supplied
+
+### Maintainer confirmation
+I confirm I am authorized to submit this listing and have not included credentials.
+
+### Review checklist (FreeMCP maintainers)
+- [ ] Confirm repository and ownership claims
+- [ ] Review documentation and installation commands
+- [ ] Check permissions, security concerns, and spam
+- [ ] Validate compatibility claims before publication
+- [ ] Approve or reject submission
