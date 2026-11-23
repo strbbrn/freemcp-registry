@@ -6,8 +6,6 @@ labels: ["submission", "new-server"]
 assignees: strbbrn
 ---
 
-> **Recommended:** Use the [FreeMCP submission form](https://freemcp.in/submit) to analyze your public repository and generate a complete submission. If submitting directly here, replace all example values below. Do not include secrets.
-
 ## MCP server submission
 
 ### Repository
@@ -39,6 +37,8 @@ Not supplied
 
 ### Setup prerequisites
 Not supplied
+
+> **Recommended:** Use the [FreeMCP submission form](https://freemcp.in/submit) to analyze your public repository and generate a complete submission. If submitting directly here, replace all example values below. Do not include secrets.
 
 ### Maintainer confirmation
 I confirm I am authorized to submit this listing and have not included credentials.
