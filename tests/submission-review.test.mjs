@@ -23,3 +23,10 @@ test('Report is preliminary and never claims approval',()=>{
  assert.match(report,/live D1/);
  assert.match(report,/No automatic publication or approval/);
 });
+
+test('Legacy submission is recognized as legacy evidence only',async()=>{
+ const {parseLegacySubmissionIssue}=await import('../src/lib/submission-review.mjs');
+ const legacy='## Server Details\n\n**Server Name:** Example\n**GitHub Repository URL:** https://github.com/example/server\n**Short Description:** Example MCP server\n**Category:** Development\n\n## Additional Context\nNo installation details';
+ assert.equal(parseLegacySubmissionIssue(legacy).Name,'Example');
+ assert.equal(reviewSubmission(legacy).recognized,false);
+});

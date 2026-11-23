@@ -1,13 +1,17 @@
 import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
-import {reviewSubmission,formatReview} from '../src/lib/submission-review.mjs';
+import {reviewSubmission,formatReview,parseLegacySubmissionIssue} from '../src/lib/submission-review.mjs';
 
 const event=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
 const issue=event.issue;
-if(!issue||issue.pull_request||!/^\[MCP Submission\]/i.test(issue.title||'')){console.log('Not an MCP submission issue; skipping');process.exit(0);}
+if(!issue||issue.pull_request||!(/^(\[MCP Submission\]|Add:)/i.test(issue.title||''))){console.log('Not an MCP submission issue; skipping');process.exit(0);}
 const existing=readdirSync('src/data/servers').filter(f=>f.endsWith('.json')).map(f=>JSON.parse(readFileSync(join('src/data/servers',f),'utf8')));
-const review=reviewSubmission(issue.body||'',existing);
-const body=formatReview(review);
+const legacy=/^Add:/i.test(issue.title||'');
+const review=legacy?null:reviewSubmission(issue.body||'',existing);
+const legacyFields=legacy?parseLegacySubmissionIssue(issue.body||''):null;
+const body=legacy
+ ? '### FreeMCP automated submission triage\n\n**Legacy submission — manual review required**\n\n'+(legacyFields?'Basic legacy fields detected.':'Some legacy fields are missing.')+' Please provide the documented tools, installation instructions, prerequisites, transport, and permissions/security considerations, or resubmit using https://freemcp.in/submit.\n\n_No automatic publication or approval._'
+ :formatReview(review);
 console.log(body);
 if(!process.env.GITHUB_TOKEN){console.log('No token: dry-run only');process.exit(0);}
 const repo=process.env.GITHUB_REPOSITORY;

@@ -1,14 +1,14 @@
 name: Triage MCP submissions
 on:
   issues:
-    types: [opened, edited, reopened]
+    types: [opened, reopened]
   workflow_dispatch:
 permissions:
   contents: read
   issues: write
 jobs:
   triage:
-    if: github.event_name == 'issues' && !github.event.issue.pull_request && startsWith(github.event.issue.title, '[MCP Submission]')
+    if: github.event_name == 'issues' && !github.event.issue.pull_request && (startsWith(github.event.issue.title, '[MCP Submission]') || startsWith(github.event.issue.title, 'Add:'))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
