@@ -80,3 +80,28 @@ Successfully fetched and inspected the existence of current README content for t
 **Evidence boundary:** README retrieval confirms the referenced repositories are accessible; it does **not** verify that every tool listed in production matches the default-enabled upstream inventory. In particular, `slackapi/slack-skills-plugin` is a plugin repository and not necessarily the implementation of the hosted Slack MCP service; `browserbase/stagehand` is a broader automation repository, not necessarily the source of the hosted MCP endpoint. These source-identity ambiguities must be resolved rather than presented as verified source code.
 
 Read-only production-row simulation succeeded for every proposed `json_set` expression (20/20): valid JSON, preserved array types for tools, installations, security. The complete SQL with `updated_at` changes was also recompiled against D1 using `EXPLAIN` (20/20 passed, no writes).
+
+
+## Tool-name README text cross-check — 2026-11-23
+
+This is a **literal name-occurrence check only**, not proof that tools exist at runtime, are enabled by default, or have matching descriptions. Production tool names were compared case-insensitively with the linked repository's root README:
+
+| Listing | Tool names found / listed | Interpretation |
+|---|---:|---|
+| Brave Search | 8/8 | All names occur in README |
+| Browserbase | 6/6 | All names occur in Stagehand README; hosted service identity still separate |
+| Cloudflare | 4/4 | All names occur in README |
+| Firecrawl | 34/34 | All names occur in README |
+| GitHub | 95/95 | All names occur in README |
+| GitLab | 40/40 | All names occur in README |
+| MongoDB | 53/54 | `remote-atlas-connect` not found in root README; check dedicated tool docs before deciding whether to remove |
+| Neon | 117/117 | All names occur in README |
+| Nmap | 6/6 | All names occur in README |
+| Notion | 0/36 | Root README covers local package; listing describes hosted service with separate tool documentation. **Not evidence of 36 invalid tools** |
+| Redis | 6/53 | Root README is not an exhaustive tool catalog; inspect module documentation/source before concluding missing tools |
+| Semgrep | 0/6 | Root project README does not document MCP-specific tools; inspect MCP module documentation |
+| Shodan | 11/11 | All names occur in README |
+| Slack | 0/27 | Linked Slack Skills Plugin README is not the hosted MCP tool reference. Source identity remains unresolved |
+| Stripe | 0/15 | Root Stripe AI README does not list hosted MCP tool names; use Stripe MCP documentation |
+
+The numbers above **must not be represented as runtime validation**. They identify documentation coverage and gaps for follow-up; no tool was removed based solely on absence from a root README.
