@@ -4,6 +4,7 @@ on:
     paths:
       - 'sql/audits/2026-11-23-listing-remediation.sql'
       - 'sql/audits/test_2026_11_23_remediation.py'
+      - 'sql/audits/2026-11-23-rollback.sql'
       - '.github/workflows/audit-sql-regression.yml'
   workflow_dispatch:
 jobs:
