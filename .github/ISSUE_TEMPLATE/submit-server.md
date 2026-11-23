@@ -38,8 +38,6 @@ Not supplied
 ### Setup prerequisites
 Not supplied
 
-> **Recommended:** Use the [FreeMCP submission form](https://freemcp.in/submit) to analyze your public repository and generate a complete submission. If submitting directly here, replace all example values below. Do not include secrets.
-
 ### Maintainer confirmation
 I confirm I am authorized to submit this listing and have not included credentials.
 
@@ -49,3 +47,6 @@ I confirm I am authorized to submit this listing and have not included credentia
 - [ ] Check permissions, security concerns, and spam
 - [ ] Validate compatibility claims before publication
 - [ ] Approve or reject submission
+
+> **Recommended:** Use the [FreeMCP submission form](https://freemcp.in/submit) to analyze your public repository and generate a complete submission. If submitting directly here, replace all example values below. Do not include secrets.
+
