@@ -112,3 +112,13 @@ The numbers above **must not be represented as runtime validation**. They identi
 The repository's public README describes FreeMCP as a registry of **100% free and open-source MCP servers**, with a public repository and recognized OSS license as submission requirements. Several existing listings instead use vendor-hosted OAuth HTTP endpoints (e.g., Linear, Notion, Slack, Stripe, Neon, Browserbase, Cloudflare). An open-source SDK, client library, or adjacent plugin repository **does not establish that the hosted MCP server implementation is open source**. Free use of an MCP endpoint also does not prove its underlying API has no usage charges.
 
 This is a **policy-verification gap**, not evidence that all named vendors violate the policy. Before certifying the entire registry, either (a) verify each hosted server's source license and free core usage, (b) explicitly broaden the directory's admission criteria to include free-to-connect proprietary hosted MCP services with transparent pricing disclosures, or (c) unlist entries that cannot meet the published rules. Do not silently delete or relabel vendor listings as open-source without evidence.
+
+
+## Identity-preserving resolution — approved 2026-11-23
+
+**Do not replace an archived implementation under its historical listing ID.** The revised migration leaves `aws-kb-mcp` and `postgres-mcp` unchanged, including their archived lifecycle, original GitHub URL, author, and historical tool inventory. It adds **two separate records** instead:
+
+- `aws-bedrock-kb-retrieval-mcp` — AWS Labs Bedrock Knowledge Bases retrieval MCP, distinct from the archived reference server.
+- `postgres-mcp-pro` — CrystalDBA PostgreSQL MCP Pro, distinct from the archived reference server.
+
+The migration now edits **15 existing records**, inserts **2 new records**, and preserves the two archived originals. The pre-migration snapshot covers 15 edited originals; rollback deletes the two new records and restores the 15 originals. Expected record count is **34** after migration, **32** after rollback. GitHub Actions SQL regression passed with this revised behavior. Production D1 `EXPLAIN` also accepted both new INSERT statements. The user accepted the lower-risk optional-tool coverage caveat; inventories remain labeled as conditional when applicable.
