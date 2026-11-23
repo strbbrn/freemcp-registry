@@ -1,0 +1,18 @@
+name: Audit SQL regression
+on:
+  pull_request:
+    paths:
+      - 'sql/audits/2026-11-23-listing-remediation.sql'
+      - 'sql/audits/test_2026_11_23_remediation.py'
+      - '.github/workflows/audit-sql-regression.yml'
+  workflow_dispatch:
+jobs:
+  sql-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate D1-compatible SQLite migration with in-memory fixtures
+        run: python sql/audits/test_2026_11_23_remediation.py
