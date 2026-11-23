@@ -71,3 +71,12 @@ The migration updates 17 distinct listings, but the six repository-status-only r
 
 
 After application, re-query each row's top-level description, author, repository URL, summary, installations, security, prerequisites, lifecycle and tools. Validate `json_valid(details_json)` for every row, duplicate tool names, and ensure all 32 records remain present. Check actual detail-page rendering independently.
+
+
+## Additional upstream README retrieval — 2026-11-23
+
+Successfully fetched and inspected the existence of current README content for these 15 repositories: `brave/brave-search-mcp-server`, `browserbase/stagehand`, `cloudflare/mcp`, `firecrawl/firecrawl-mcp-server`, `github/github-mcp-server`, `zereight/gitlab-mcp`, `mongodb-js/mongodb-mcp-server`, `neondatabase/mcp-server-neon`, `Vorota-ai/nmap-mcp`, `makenotion/notion-mcp-server`, `redis/mcp-redis`, `semgrep/semgrep`, `w0h1v/mcp-shodan`, `slackapi/slack-skills-plugin`, and `stripe/ai`.
+
+**Evidence boundary:** README retrieval confirms the referenced repositories are accessible; it does **not** verify that every tool listed in production matches the default-enabled upstream inventory. In particular, `slackapi/slack-skills-plugin` is a plugin repository and not necessarily the implementation of the hosted Slack MCP service; `browserbase/stagehand` is a broader automation repository, not necessarily the source of the hosted MCP endpoint. These source-identity ambiguities must be resolved rather than presented as verified source code.
+
+Read-only production-row simulation succeeded for every proposed `json_set` expression (20/20): valid JSON, preserved array types for tools, installations, security. The complete SQL with `updated_at` changes was also recompiled against D1 using `EXPLAIN` (20/20 passed, no writes).
