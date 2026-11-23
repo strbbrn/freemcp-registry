@@ -35,7 +35,7 @@ backups = [x for x in statements if x.startswith("CREATE TABLE IF NOT EXISTS ser
 assert len(backups) == 1
 conn.execute(backups[0])
 assert conn.execute("SELECT COUNT(*) FROM servers_backup_20261123").fetchone()[0] == 15
-targets = set(re.findall(r"WHERE id = '([^']+)'", sql))
+targets = set(re.findall(r"WHERE id = '([^']+)'", "\n".join(updates)))
 assert len(targets) == 17 and targets.issubset(set(IDS) | {'aws-bedrock-kb-retrieval-mcp', 'postgres-mcp-pro'}), targets
 inserts = [x for x in statements if x.startswith('INSERT INTO servers')]
 assert len(inserts) == 2
