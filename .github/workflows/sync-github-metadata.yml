@@ -10,8 +10,8 @@ on:
           - preview
           - production
         default: preview
-  schedule:
-    - cron: '17 3 * * *'
+#  schedule:
+ #   - cron: '17 3 * * *'
 permissions:
   contents: read
 concurrency:
