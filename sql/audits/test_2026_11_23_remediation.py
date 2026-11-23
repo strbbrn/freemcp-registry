@@ -31,6 +31,10 @@ sql = SQL.read_text(encoding="utf-8")
 statements = [line.strip().rstrip(";") for line in sql.splitlines() if line.strip()]
 updates = [x for x in statements if x.startswith("UPDATE servers SET")]
 assert len(updates) == 20, f"Expected 20 updates, got {len(updates)}"
+backups = [x for x in statements if x.startswith("CREATE TABLE IF NOT EXISTS servers_backup_20261123")]
+assert len(backups) == 1
+conn.execute(backups[0])
+assert conn.execute("SELECT COUNT(*) FROM servers_backup_20261123").fetchone()[0] == 17
 targets = set(re.findall(r"WHERE id = '([^']+)'", sql))
 assert len(targets) == 17 and targets.issubset(IDS), targets
 for stmt in updates:
@@ -56,4 +60,7 @@ for sid in IDS:
             assert isinstance(item.get("config"), dict), sid
     if sid not in targets:
         assert names == ["old_tool"], f"Unexpected change to {sid}"
-print("PASS: 20 statements executed in-memory, 17 targets, 32 records, valid JSON and structured installations")
+rollback_sql = Path(__file__).with_name("2026-11-23-rollback.sql").read_text(encoding="utf-8")
+conn.executescript(rollback_sql)
+assert conn.execute("SELECT COUNT(*) FROM servers s JOIN servers_backup_20261123 b ON b.id=s.id WHERE s.details_json=b.details_json AND s.name=b.name AND s.github_url=b.github_url AND s.updated_at=b.updated_at").fetchone()[0] == 17
+print("PASS: 20 updates executed in-memory, 17-row snapshot, 32 records, valid JSON, structured installations, full rollback")
