@@ -30,6 +30,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+.dev.vars
+.dev.vars.*
 
 # Temporary SQL review artifacts
 /sql/review/
