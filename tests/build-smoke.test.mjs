@@ -12,15 +12,19 @@ test('Server detail pages are dynamically served from D1',()=>{
     assert.ok(!existsSync(join('dist','servers',server.id+'.html')),server.id);
   }
 });
-test('Homepage links to dedicated directory and preview retains the registry',()=>{
-  const home=page('');const directory=page('servers');const preview=page('v2-preview');
-  assert.match(home,/href="\/servers"/);
+test('Homepage links to the dedicated directory and obsolete preview is retired',()=>{
+  const home=page('');const directory=page('servers');
+  assert.match(home, /<link rel="ard" href="\/\.well-known\/ard\.json"/);
+  assert.match(home,/href="\/servers\/"/);
   assert.match(directory,/registry-query/);
   assert.match(directory,/registry-category/);
   assert.match(directory,/registry-sort/);
   assert.match(directory,/next-page/);
-  for(const server of servers){assert.ok(!directory.includes(server.description),'directory embeds server data '+server.id);assert.ok(preview.includes(server.name),'preview missing '+server.id);}
-  assert.match(directory,/\/api\/servers/);
+  for(const server of servers) assert.ok(!directory.includes(server.description),'directory embeds server data '+server.id);
+  assert.match(directory,/<form[^>]+method="get"[^>]+action="\/servers\/"/);
+  assert.doesNotMatch(home + directory, /fetch\(['"]\/api\/servers|href="\/v2-preview/);
+  assert.ok(!existsSync('dist/v2-preview/index.html'));
+  assert.match(html('dist/_redirects'), /\/v2-preview \/servers\/ 301/);
 });
 test('Submission page has navigation and accessible form controls',()=>{
   const submit=page('submit');

@@ -21,4 +21,44 @@ if(found.length!==24)throw new Error('Unexpected pagination length: '+found.leng
 const category=db.prepare('SELECT COUNT(*) AS total FROM servers WHERE category=?').get('Security').total;
 if(category!==5000)throw new Error('Category filter mismatch');
 console.log(JSON.stringify({records:count,ftsRecords:indexed,pageSize:found.length,securityCount:category,seedMs:Math.round(seeded-start),queryMs:Number(queryMs.toFixed(2))},null,2));
+// Compare equivalent published-directory searches against the same indexed data.
+db.exec("ALTER TABLE servers ADD COLUMN details_json TEXT NOT NULL DEFAULT '{}'");
+db.exec(`UPDATE servers SET details_json = '{"review":{"status":"pending-publication"}}' WHERE stars % 20 = 0`);
+const legacyCount = db.prepare(`SELECT COUNT(*) AS total FROM servers
+  WHERE COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')
+  AND id IN (SELECT id FROM servers_search WHERE servers_search MATCH ?)`);
+const legacyPage = db.prepare(`SELECT id,name,description,category,author,tags_json,
+  json_extract(details_json, '$.lifecycle') AS lifecycle FROM servers
+  WHERE COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')
+  AND id IN (SELECT id FROM servers_search WHERE servers_search MATCH ?)
+  ORDER BY name COLLATE NOCASE, id LIMIT ? OFFSET ?`);
+const adapter = { prepare(sql) {
+  const statement = db.prepare(sql);
+  return { bind(...params) { return {
+    first: async () => statement.get(...params),
+    all: async () => ({ results: statement.all(...params) }),
+  }; } };
+} };
+const { registry } = await import('../lib/registry.js');
+const current = registry(adapter);
+const query = '"benchmark"*';
+const measurements = [];
+for (const page of [11, 375]) {
+  const times = { legacy: [], current: [] };
+  for (let i = 0; i < 7; i++) {
+    const beforeLegacy = performance.now();
+    const count = legacyCount.get(query).total;
+    const oldRows = legacyPage.all(query, 24, (page - 1) * 24);
+    times.legacy.push(performance.now() - beforeLegacy);
+    const beforeCurrent = performance.now();
+    const newRows = await current.directory({ q: 'benchmark', category: '', sort: 'name', page, size: 24 });
+    times.current.push(performance.now() - beforeCurrent);
+    if (count !== newRows.total || oldRows.map(row => row.id).join() !== newRows.servers.map(row => row.id).join()) {
+      throw new Error('Public registry search mismatch');
+    }
+  }
+  const median = samples => Number(samples.sort((a, b) => a - b)[3].toFixed(2));
+  measurements.push({ page, previousMedianMs: median(times.legacy), currentMedianMs: median(times.current) });
+}
+console.log(JSON.stringify({ description: 'Local SQLite search only, seven samples per variant', measurements }, null, 2));
 db.close();

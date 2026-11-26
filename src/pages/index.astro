@@ -1,9 +1,10 @@
 ---
 import Promotion from '../components/Promotion.astro';
 import Sponsorship from '../components/Sponsorship.astro';
+import { schema, ORIGIN } from '../../lib/seo.js';
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
-<BaseLayout title="FreeMCP 2.0 — Open-source MCP server registry" description="Discover and explore open-source Model Context Protocol servers.">
+<BaseLayout title="FreeMCP 2.0 — Open-source MCP server registry" description="Discover and explore open-source Model Context Protocol servers." structuredData={schema("WebSite", { name: "FreeMCP", url: ORIGIN + "/" })}>
   <div class="homepage-glow" aria-hidden="true"></div>
   <section class="container hero">
     <div class="hero-inner">
@@ -11,8 +12,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <h1>Find the right tools<br/>for <span>your AI agents.</span></h1>
       <p>Discover open-source MCP servers that connect your AI assistants to the tools, data, and services they need.</p>
       <div class="hero-actions">
-        <a class="hero-primary" href="/servers">Explore MCP servers <span aria-hidden="true">↗</span></a>
-        <a class="hero-secondary" href="/submit">Submit your server <span aria-hidden="true">→</span></a>
+        <a class="hero-primary" href="/servers/">Explore MCP servers <span aria-hidden="true">↗</span></a>
+        <a class="hero-secondary" href="/submit/">Submit your server <span aria-hidden="true">→</span></a>
       </div>
       <div class="hero-trust"><span class="trust-dot"></span> Community-driven <span class="trust-divider">·</span> Open source <span class="trust-divider">·</span> Built for developers</div>
     </div>
@@ -20,50 +21,16 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <div class="container"><Promotion placement="home" slot="strip" /></div>
   <section class="container featured" id="registry">
     <div class="section-head">
-      <div><div class="eyebrow">DISCOVER / LATEST ADDITIONS</div><h2>Recently added <span>MCP servers</span></h2><p id="registry-summary" aria-live="polite">Loading the live registry…</p></div>
-      <a class="view-all" href="/servers">View all servers <span aria-hidden="true">↗</span></a>
+      <div><div class="eyebrow">DISCOVER / LATEST ADDITIONS</div><h2>Recently added <span>MCP servers</span></h2><p id="registry-summary" aria-live="polite">Recent listings are temporarily unavailable.</p></div>
+      <a class="view-all" href="/servers/">View all servers <span aria-hidden="true">↗</span></a>
     </div>
-    <div class="featured-grid" id="recent-servers" aria-live="polite"><p class="loading-message">Loading recently added servers…</p></div>
+    <div class="featured-grid" id="recent-servers"></div>
   </section>
   <div class="container"><Promotion placement="home" /></div>
   <section class="container getting-started" id="how-it-works">
     <div class="eyebrow">GET STARTED</div><h2>Everything your agent needs.<br/><span>One open directory.</span></h2>
-    <div class="steps"><div class="step"><div class="step-icon">01</div><h3>Discover</h3><p>Explore integrations by category, purpose, and maintainer.</p></div><div class="step"><div class="step-icon">02</div><h3>Evaluate</h3><p>Review the source, setup instructions, and security details.</p></div><div class="step"><div class="step-icon">03</div><h3>Connect</h3><p>Configure your MCP client and start building better agents.</p></div></div>
+    <div class="steps"><div class="step"><div class="step-icon">01</div><h3>Discover</h3><p>Explore integrations by category, purpose, and maintainer.</p></div><div class="step"><div class="step-icon">02</div><h3>Evaluate</h3><p>Review the source, setup instructions, and security details.</p></div><div class="step"><div class="step-icon">03</div><h3>Connect</h3><p>Follow the <a href="/guides/install-mcp-server/">MCP installation guide</a> to configure your client and test the connection.</p></div></div>
   </section>
-<script is:inline>
-(async () => {
- const grid=document.getElementById('recent-servers');
- const summary=document.getElementById('registry-summary');
- const make=(tag,cls,value)=>{const el=document.createElement(tag);if(cls)el.className=cls;if(value!=null)el.textContent=value;return el;};
- try {
-  const [serverResponse,categoryResponse]=await Promise.all([fetch('/api/servers?sort=newest&page=1&limit=6'),fetch('/api/servers?meta=categories')]);
-  if(!serverResponse.ok)throw new Error(`Servers API returned HTTP ${serverResponse.status}`);
-  const data=await serverResponse.json();
-  if(!Array.isArray(data.servers)||!Number.isInteger(data.total)||data.servers.length>6)throw new Error('Unexpected servers API response');
-  let categoryCount=null;
-  if(categoryResponse.ok){try{const categories=await categoryResponse.json();if(Array.isArray(categories.categories))categoryCount=categories.categories.length;}catch(e){console.warn('Category metadata unavailable',e);}}
-  summary.textContent=categoryCount===null?`${data.total} servers in the live registry`:`${data.total} servers across ${categoryCount} categories`;
-  grid.replaceChildren();
-  for(const server of data.servers){
-   const article=make('article','featured-card');
-   const category=make('span','',server.category);
-   const title=make('h3');
-   const link=make('a','',server.name);
-   link.href='/servers/'+encodeURIComponent(server.id);
-   title.append(link);
-   const description=make('p','',server.description);
-   article.append(category,title,description);
-   if(server.author)article.append(make('div','featured-author',`by ${server.author}`));
-   grid.append(article);
-  }
-  if(!data.servers.length)grid.append(make('p','loading-message','No published servers yet.'));
- } catch(error){
-  console.warn('Live registry unavailable',error);
-  summary.textContent='Live registry temporarily unavailable';
-  grid.replaceChildren(make('p','loading-message',`Unable to load servers ( ${error.message} ). Please try again shortly.`));
- }
-})();
-</script>
 <Sponsorship />
 </BaseLayout>
 <style>

@@ -10,3 +10,4 @@
 [data-detail-promo=bottom] .dp-card:before{display:none}
 [data-detail-promo=bottom] .dp-controls{right:14px;bottom:50%;transform:translateY(50%)}
 @media(max-width:650px){[data-detail-promo=bottom] .dp-card{padding:15px 48px 15px 16px}[data-detail-promo=bottom] .dp-inner{display:block}[data-detail-promo=bottom] .dp-link{display:inline-block;margin-top:8px}[data-detail-promo=bottom] .dp-title{font-size:18px}[data-detail-promo=bottom] .dp-controls{right:9px}}
+[data-detail-promo=primary]{margin:20px 0;padding:0}

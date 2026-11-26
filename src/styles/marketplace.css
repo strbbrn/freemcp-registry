@@ -29,6 +29,7 @@ html,body{font-family:Geist,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoo
 .directory .results .category-pill{border-radius:100px;padding:4px 10px;font:11px 'Geist Mono',monospace;color:var(--muted);background:var(--secondary);border-color:var(--border)}
 .directory .results .server-status{position:absolute;bottom:16px;right:20px}
 .directory .results .server-action{position:absolute;inset:0;font-size:0;z-index:1}
+.directory .results .server-main h2 a{position:relative;z-index:2}
 .directory .results .server-action:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .directory .pagination button{border-radius:8px;padding:10px 16px}
 .submit .panel{border-radius:12px;padding:30px;background:linear-gradient(180deg,oklch(1 0 0 / 4%),oklch(1 0 0 / 1%));box-shadow:none}

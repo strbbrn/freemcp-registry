@@ -1,0 +1,3 @@
+/v2-preview /servers/ 301
+/v2-preview/ /servers/ 301
+/ai-catalog.json /.well-known/ai-catalog.json 301
