@@ -43,6 +43,7 @@ test('real D1 rolls back changes when the audit insert fails', async ({request})
 for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
   test(`admin registry and promotions flow on ${device}`, async ({page,context,request})=>{
     test.skip(!local,'Authenticated browser testing uses isolated local D1 fixtures');
+    test.setTimeout(55000);
     const id='admin-ui-'+device, title='Maintainer\'s <em>listing</em> '+device;
     await page.setViewportSize({width,height});
     await authenticated(context);
@@ -76,6 +77,12 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
       await page.screenshot({path:process.env.FREEMCP_ADMIN_SCREENSHOTS+'/'+device+'-registry.png', animations:'disabled'});
     }
     expect((await request.get('/servers/'+id)).status()).toBe(404);
+    await page.getByLabel('Name',{exact:true}).fill(title+' proposed');
+    await page.getByRole('button',{name:'Review proposed edits'}).click();
+    await expect(page.getByRole('heading',{name:'Review proposed edits'})).toBeVisible();
+    await expect(page.getByText(title+' proposed',{exact:false})).toBeVisible();
+    await page.getByRole('link',{name:'Back to editor'}).click();
+    await expect(page.getByLabel('Name',{exact:true})).toHaveValue(title);
     await page.getByRole('link',{name:'Preview',exact:true}).click();
     await expect(page.getByText('fixture_tool · Returns a synthetic result.')).toBeVisible();
     await page.getByRole('link',{name:'Back to editor'}).click();
