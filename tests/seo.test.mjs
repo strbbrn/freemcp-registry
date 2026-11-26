@@ -8,6 +8,7 @@ import { onRequestGet as homepage } from '../functions/index.js';
 import { onRequestGet as directory } from '../functions/servers/index.js';
 import { onRequestGet as detail } from '../functions/servers/[id].js';
 import { onRequestGet as sitemap } from '../functions/sitemap.xml.js';
+import { registryLifecycle, storedRepositoryStatus } from '../lib/lifecycle.js';
 import { discoveryManifest, openApi } from '../lib/discovery.js';
 import { readFilters, registry } from '../lib/registry.js';
 import { canonicalUrl, directoryPath, escapeHtml, jsonLd, metadata, safeHttps } from '../lib/seo.js';
@@ -140,7 +141,7 @@ test('strict HTML pagination and failure response status', async t => {
   assert.equal(normalized.headers.get('location'), '/servers/');
   t.mock.method(console, 'error', () => {});
   for (const [handler, path, params] of [
-    [homepage, '/', {}], [directory, '/servers/', {}],
+    [directory, '/servers/', {}],
     [detail, '/servers/example', { id: 'example' }], [sitemap, '/sitemap.xml', {}],
   ]) {
     const broken = { prepare() { throw new Error('internal fixture'); }, batch() { throw new Error('internal fixture'); } };
@@ -151,6 +152,76 @@ test('strict HTML pagination and failure response status', async t => {
       assert.doesNotMatch(await response.text(), /internal fixture/);
     }
   }
+});
+
+test('homepage serves the complete static page uncached when D1 fails', async t => {
+  t.mock.method(console, 'error', () => {});
+  const broken = { batch() { throw new Error('internal fixture'); } };
+  const fallback = file('../dist/index.html');
+  for (const env of [{}, { DB: broken }]) {
+    const response = await homepage({
+      env, request: request('/'),
+      next: async () => new Response(fallback, { headers: { 'content-type': 'text/html', etag: 'static-version' } }),
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.headers.get('etag'), null);
+    assert.equal(response.headers.get('retry-after'), null);
+    const html = await response.text();
+    assert.match(html, /Recent listings are temporarily unavailable/);
+    assert.match(html, /Find the right tools/);
+    assert.match(html, /href="\/guides\/install-mcp-server\//);
+    assert.doesNotMatch(html, /internal fixture|<article class="featured-card"/);
+  }
+  const missing = await homepage({ env: {}, request: request('/'), next: async () => new Response(null, { status: 404 }) });
+  assert.equal(missing.status, 503);
+  assert.equal(missing.headers.get('retry-after'), '60');
+});
+
+test('campaign-aware normalization and invalid page checks avoid D1', async () => {
+  const env = { get DB() { assert.fail('normalization called D1'); } };
+  const cases = [
+    ['/servers?page=01&sort=name&utm_source=Free+MCP&gclid=abc&unknown=1', '/servers/?utm_source=Free+MCP&gclid=abc'],
+    ['/servers/?utm_content=a%26b&x=2&category=Database&page=02', '/servers/?category=Database&page=2&utm_content=a%26b'],
+    ['/servers/?page=2&q=%20sqlite%20&utm_campaign=launch', '/servers/?q=sqlite&page=2&utm_campaign=launch'],
+  ];
+  for (const [from, target] of cases) {
+    const response = await directory({ env, request: request(from) });
+    assert.equal(response.status, 308);
+    assert.equal(response.headers.get('location'), target);
+  }
+  const invalid = await directory({ env, request: request('/servers/?page=2&page=3&utm_source=example') });
+  assert.equal(invalid.status, 404);
+});
+
+test('registry lifecycle and last-known GitHub repository status are separate', async t => {
+  const DB = fixtureDatabase();
+  t.after(() => DB.close());
+  const env = { DB };
+  const store = registry(DB);
+  const synced = await store.detail('fixture-01');
+  assert.equal(storedRepositoryStatus(synced.details), 'Archived');
+  assert.equal(registryLifecycle(synced.details), null);
+  const editorial = await store.detail('fixture-02');
+  assert.equal(storedRepositoryStatus(editorial.details), 'Active');
+  assert.equal(registryLifecycle(editorial.details), 'archived');
+  assert.equal(registryLifecycle({ ...synced.details, lifecycleSource: 'registry' }), 'archived');
+  assert.equal(registryLifecycle({ lifecycle: 'archived', lifecycleSource: 'github' }), null);
+  assert.equal(storedRepositoryStatus({ githubMetadata: { archived: true, disabled: false } }), null);
+  assert.equal(registryLifecycle({ lifecycle: 'archived' }), 'archived');
+
+  const list = await store.directory({ q: '', category: 'Fixture', sort: 'name', page: 1, size: 24 });
+  const publicStatus = id => list.servers.find(row => row.id === id)?.lifecycle;
+  assert.equal(publicStatus('fixture-01'), 'archived');
+  assert.equal(publicStatus('fixture-02'), 'archived');
+  assert.equal(publicStatus('fixture-03'), 'active');
+
+  const archivedHtml = await (await detail({ env, params: { id: 'fixture-01' } })).text();
+  assert.match(archivedHtml, /Repository archived \(last checked\)/);
+  assert.doesNotMatch(archivedHtml, /Registry: archived/);
+  const editorialHtml = await (await detail({ env, params: { id: 'fixture-02' } })).text();
+  assert.match(editorialHtml, /Registry: archived/);
+  assert.match(editorialHtml, /Active \(last checked\)/);
 });
 
 test('discovery artifacts pass both pinned upstream schemas and describe only the read-only API', () => {

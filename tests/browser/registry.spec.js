@@ -128,8 +128,9 @@ test('mobile themes, sponsorship, archive state, copy and badges', async ({ page
   await page.goto('/servers/sqlite-mcp');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('#github-stars')).toHaveText('42');
-  await expect(page.locator('#github-lifecycle')).toHaveText('Archived');
-  await expect(page.locator('#github-lifecycle')).toBeVisible();
+  await expect(page.locator('#registry-lifecycle')).toHaveText('Registry: archived');
+  await expect(page.locator('#github-lifecycle')).toBeHidden();
+  await expect(page.locator('#github-lifecycle-value')).toHaveText('Active');
   await expect(page.locator('#freemcp-badge img')).toBeVisible();
   const loader = page.locator('#install-0');
   await expect(loader).toBeVisible();
@@ -192,4 +193,54 @@ test('local rendered pages hide draft and malformed fixture rows', async ({ requ
   expect(html).toContain('Escaped &lt;asset&gt; description.');
   expect(html).not.toContain('http://example.com/not-https');
   expect(html).not.toMatch(/draft-fixture|test-only-fixture|broken-review-fixture/);
+});
+
+test('campaign tags survive landing and redirects without changing canonical links', async ({ request }) => {
+  const landing = await request.get('/servers/?utm_source=launch&gclid=campaign-1', { maxRedirects: 0 });
+  expect(landing.status()).toBe(200);
+  const html = await landing.text();
+  expect(html).toMatch(/rel="canonical" href="https:\/\/freemcp.in\/servers\/"/);
+  expect(html).toMatch(/href="\/servers\/\?page=2"/);
+  expect(html).not.toMatch(/utm_source|gclid/);
+  const response = await request.get('/servers/?page=1&utm_source=launch&gclid=campaign-1', { maxRedirects: 0 });
+  expect(response.status()).toBe(308);
+  const destination = new URL(response.headers().location, response.url());
+  expect(destination.pathname + destination.search).toBe('/servers/?utm_source=launch&gclid=campaign-1');
+});
+
+test('live GitHub status supersedes synced status and failures retain labelled cached data', async ({ page }) => {
+  test.skip(!local, 'Requires synthetic local lifecycle fixtures');
+  let status = 200;
+  let metadata = { stargazers_count: 71, archived: false, disabled: false };
+  await page.route('https://api.github.com/repos/example/fixture', route => route.fulfill({ status, json: metadata }));
+  await page.goto('/servers/fixture-01');
+  await expect(page.locator('#github-lifecycle-value')).toHaveText('Active');
+  await expect(page.locator('#github-lifecycle')).toBeHidden();
+  await expect(page.locator('#registry-lifecycle')).toHaveCount(0);
+  await expect(page.locator('#summary-stars')).toHaveText('71');
+  await page.evaluate(() => sessionStorage.clear());
+
+  metadata = { stargazers_count: 72, archived: false, disabled: true };
+  await page.goto('/servers/fixture-03');
+  await expect(page.locator('#github-lifecycle')).toHaveText('Repository disabled');
+  await expect(page.locator('#github-archive-notice')).toBeVisible();
+  await page.evaluate(() => sessionStorage.clear());
+
+  status = 503;
+  for (const [id, expected, archived] of [
+    ['fixture-01', 'Archived (last checked)', true],
+    ['fixture-02', 'Active (last checked)', false],
+  ]) {
+    const failed = page.waitForResponse('https://api.github.com/repos/example/fixture');
+    await page.goto('/servers/' + id);
+    expect((await failed).status()).toBe(503);
+    await expect(page.locator('#github-lifecycle-value')).toHaveText(expected);
+    await expect(page.locator('#summary-stars')).toHaveText('0');
+    if (archived) {
+      await expect(page.locator('#github-lifecycle')).toHaveText('Repository archived (last checked)');
+    } else {
+      await expect(page.locator('#github-lifecycle')).toBeHidden();
+      await expect(page.locator('#registry-lifecycle')).toHaveText('Registry: archived');
+    }
+  }
 });
