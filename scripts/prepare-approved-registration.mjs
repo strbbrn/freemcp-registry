@@ -1,6 +1,6 @@
 import {writeFileSync} from 'node:fs';
 import {parseSubmissionIssue,parseLegacySubmissionIssue} from '../src/lib/submission-review.mjs';
-import {prepareRegistration} from '../src/lib/registration.mjs';
+import {manifestFromSubmission,prepareRegistration} from '../src/lib/registration.mjs';
 import {parseRepository,secretPattern} from '../src/lib/submission.mjs';
 
 const number=Number(process.env.ISSUE_NUMBER);
@@ -28,23 +28,7 @@ const command=(process.env.INSTALL_COMMAND||'').trim();
 const endpoint=(process.env.INSTALL_ENDPOINT||'').trim();
 let args;
 try{args=JSON.parse(process.env.INSTALL_ARGS_JSON||'[]');}catch{throw Error('Installation args must be a JSON array');}
-if(Boolean(command)===Boolean(endpoint))throw Error('Provide exactly one installation command or HTTPS endpoint');
-if(command&&!/^[A-Za-z0-9_.+\/-]{1,200}$/.test(command))throw Error('Installation command must be a single executable, not shell syntax');
-if(!Array.isArray(args)||args.length>20||args.some(a=>typeof a!=='string'||a.length>300))throw Error('Invalid installation args');
-if(endpoint&&args.length)throw Error('Endpoint cannot have command arguments');
-const evidence=fields['Installation evidence / instructions']||'';
-const expected=command?[command,...args].join(' '):endpoint;
-if(!evidence||evidence==='Not supplied'||!evidence.includes(expected))throw Error('Installation configuration must match submitted evidence; request clarification before approval');
-const transport=fields.Transport;
-if(command&&transport!=='stdio')throw Error('Command installation requires explicitly documented stdio transport');
-if(endpoint&&!['http','sse'].includes(transport))throw Error('Endpoint requires explicitly documented http or sse transport');
-const rawTools=fields['Documented tools'];
-const tools=rawTools&&rawTools!=='Not supplied'?rawTools.split('\n').filter(Boolean).map(line=>{const i=line.indexOf('|');if(i<1)throw Error('Invalid documented tool entry');return {name:line.slice(0,i).trim(),description:line.slice(i+1).trim()};}):[];
-const rawPrerequisites=fields['Setup prerequisites'];
-const prerequisites=rawPrerequisites&&rawPrerequisites!=='Not supplied'?rawPrerequisites.split('\n').map(x=>x.trim()).filter(Boolean):[];
-const rawPermissions=fields['Permissions / security considerations'];
-const permissions=rawPermissions&&rawPermissions!=='Not supplied'?rawPermissions.split('\n').map(x=>x.trim()).filter(Boolean):[];
-const manifest={schemaVersion:1,name:fields.Name,description:fields.Description,repository:fields.Repository,category:fields.Category,transport,installation:command?{command,args}:{endpoint},tools,prerequisites,permissions};
+const manifest=manifestFromSubmission(fields,{command,endpoint,args});
 const registration=prepareRegistration(manifest,number);
 writeFileSync('registration-candidate.sql',registration.sql,{mode:0o600});
 writeFileSync('registration-review.json',JSON.stringify({issue:number,repository:fields.Repository,sourceBranch:metadata.default_branch,sourceCommit:sourceSha,serverId:registration.id,source:'approved-github-issue',installation:manifest.installation,tools:manifest.tools,prerequisites:manifest.prerequisites,permissions:manifest.permissions,reviewedBy:process.env.GITHUB_ACTOR,warning:'NOT DEPLOYED. Verify issue claims, source commit, live D1 duplicates, installation safety and SQL before applying.'},null,2)+'\n',{mode:0o600});
