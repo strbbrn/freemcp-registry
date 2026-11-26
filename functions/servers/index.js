@@ -15,15 +15,12 @@ export async function onRequestGet(context) {
   const path = directoryPath(page, filters);
   try {
     const store = registry(context.env.DB);
-    const [data, categories] = await Promise.all([
-      store.directory({ ...filters, size: PAGE_SIZE, page }),
-      store.categories(),
-    ]);
+    const data = await store.directory({ ...filters, size: PAGE_SIZE, page, includeCategories: true });
     if (page > data.pages) return notFound();
     if (url.pathname + url.search !== path) return redirect(path);
     // Stop generating links beyond the supported offset window.
     data.pages = Math.min(data.pages, MAX_PAGE);
-    return await renderShell(context, directoryPage(data, categories, filters));
+    return await renderShell(context, directoryPage(data, data.categories, filters));
   } catch (error) {
     console.error('Directory registry unavailable', error);
     return unavailable();

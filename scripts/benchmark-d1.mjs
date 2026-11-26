@@ -27,7 +27,8 @@ db.exec(`UPDATE servers SET details_json = '{"review":{"status":"pending-publica
 const legacyCount = db.prepare(`SELECT COUNT(*) AS total FROM servers
   WHERE COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')
   AND id IN (SELECT id FROM servers_search WHERE servers_search MATCH ?)`);
-const legacyPage = db.prepare(`SELECT id FROM servers
+const legacyPage = db.prepare(`SELECT id,name,description,category,author,tags_json,
+  json_extract(details_json, '$.lifecycle') AS lifecycle FROM servers
   WHERE COALESCE(json_extract(details_json, '$.review.status'), 'published') NOT IN ('pending-publication', 'test-only')
   AND id IN (SELECT id FROM servers_search WHERE servers_search MATCH ?)
   ORDER BY name COLLATE NOCASE, id LIMIT ? OFFSET ?`);

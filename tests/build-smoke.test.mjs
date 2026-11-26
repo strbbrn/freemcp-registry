@@ -14,6 +14,7 @@ test('Server detail pages are dynamically served from D1',()=>{
 });
 test('Homepage links to the dedicated directory and obsolete preview is retired',()=>{
   const home=page('');const directory=page('servers');
+  assert.match(home, /<link rel="ard" href="\/\.well-known\/ard\.json"/);
   assert.match(home,/href="\/servers\/"/);
   assert.match(directory,/registry-query/);
   assert.match(directory,/registry-category/);
