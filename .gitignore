@@ -9,6 +9,9 @@ dist/
 
 # testing
 coverage/
+playwright-report/
+test-results/
+.wrangler/
 
 # editor
 .vscode/

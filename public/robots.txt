@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 
 Sitemap: https://freemcp.in/sitemap.xml
+Agentmap: https://freemcp.in/.well-known/ard.json

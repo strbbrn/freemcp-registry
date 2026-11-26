@@ -1,0 +1,28 @@
+# FreeMCP
+
+> FreeMCP is a community-curated directory of open-source Model Context Protocol (MCP) servers. It helps users find listings, inspect setup and security guidance, and locate upstream documentation.
+
+FreeMCP operates a read-only directory API. The servers in the directory are maintained and operated by their respective projects. Check each listing's lifecycle and upstream instructions before installing.
+
+## Discover servers
+
+- [MCP server directory](https://freemcp.in/servers/): Browse, search, and filter published listings.
+- [Registry API specification](https://freemcp.in/api/openapi.json): Parameters and response formats for machine-readable listing search, pagination, and category lookup.
+- [Registry API](https://freemcp.in/api/servers): The first page of public listings in JSON.
+- [Registry categories](https://freemcp.in/api/servers?meta=categories): Published listing categories in JSON.
+
+## Learn
+
+- [What is MCP?](https://freemcp.in/guides/what-is-mcp/): Learn how hosts, clients, servers, and tools fit together.
+- [Install an MCP server safely](https://freemcp.in/guides/install-mcp-server/): Review compatibility, permissions, configuration, and testing.
+- [MCP versus APIs](https://freemcp.in/guides/mcp-vs-api/): Understand how MCP servers and traditional APIs work together.
+
+## Contribute
+
+- [Submit a server](https://freemcp.in/submit/): Propose a listing for community review through GitHub.
+- [About FreeMCP](https://freemcp.in/about/): Read about the registry and its curation process.
+
+## Optional
+
+- [Frequently asked questions](https://freemcp.in/faq/): Get answers about listings, installation, and security.
+- [Sitemap](https://freemcp.in/sitemap.xml): Canonical public pages and listing URLs.
