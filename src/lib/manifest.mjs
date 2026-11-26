@@ -1,23 +1,28 @@
-import schema from '../../schemas/freemcp-v1.schema.json' with { type: 'json' };
 import { parseRepository, secretPattern } from './submission.mjs';
 
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const validString = (value,max) => typeof value === 'string' && value.trim().length > 0 && value.length <= max;
 const keysAllowed = (obj,allowed) => Object.keys(obj).every(key=>allowed.includes(key));
-const categories = schema.properties.category.enum;
-const transports = schema.properties.transport.enum;
+// Cloudflare's Pages compiler and Node use different JSON-module syntax.
+ // Keep the runtime rules portable and check parity with the published schema.
+export const manifestFields = Object.freeze({
+  required: Object.freeze(["schemaVersion", "name", "description", "repository", "category", "transport"]),
+  allowed: Object.freeze(["schemaVersion", "name", "description", "repository", "category", "transport", "installation", "tools", "permissions", "prerequisites"]),
+  categories: Object.freeze(["Development", "Database", "Security", "Search", "Productivity", "Communication", "Cloud", "Utilities", "Other"]),
+  transports: Object.freeze(["stdio", "http", "sse", "unknown"]),
+});
 
 export function validateManifest(value, expectedRepository) {
  const errors=[];
  const fail = message => errors.push(message);
  if(!record(value)) return {valid:false,errors:['Manifest must be a JSON object']};
- if(!keysAllowed(value,Object.keys(schema.properties))) fail('Unknown manifest fields');
- for(const key of schema.required) if(!(key in value)) fail('Missing '+key);
+ if(!keysAllowed(value,manifestFields.allowed)) fail('Unknown manifest fields');
+ for(const key of manifestFields.required) if(!(key in value)) fail('Missing '+key);
  if(value.schemaVersion!==1) fail('Unsupported schemaVersion');
  if(!validString(value.name,120)) fail('Invalid name');
  if(!validString(value.description,1200)) fail('Invalid description');
- if(!categories.includes(value.category)) fail('Invalid category');
- if(!transports.includes(value.transport)) fail('Invalid transport');
+ if(!manifestFields.categories.includes(value.category)) fail('Invalid category');
+ if(!manifestFields.transports.includes(value.transport)) fail('Invalid transport');
  let canonical='';
  try { const parsed=parseRepository(value.repository);canonical=parsed.url.origin+'/'+parsed.owner+'/'+parsed.repo; }
  catch { fail('Invalid repository URL'); }

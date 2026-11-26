@@ -1,11 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import schema from '../schemas/freemcp-v1.schema.json' with { type: 'json' };
-import { validateManifest } from '../src/lib/manifest.mjs';
+import { manifestFields, validateManifest } from '../src/lib/manifest.mjs';
 
 const base={schemaVersion:1,name:'Example',description:'Example server',repository:'https://github.com/example/server',category:'Development',transport:'stdio',installation:{command:'npx',args:['-y','example']}};
 const check=(v,expected=base.repository)=>validateManifest(v,expected);
 test('v1 schema declares required fields and strict object definitions',()=>{
+ assert.deepEqual(manifestFields.required,schema.required);
+ assert.deepEqual(manifestFields.allowed,Object.keys(schema.properties));
+ assert.deepEqual(manifestFields.categories,schema.properties.category.enum);
+ assert.deepEqual(manifestFields.transports,schema.properties.transport.enum);
  assert.equal(schema.additionalProperties,false);
  assert.deepEqual(schema.required,['schemaVersion','name','description','repository','category','transport']);
  assert.equal(schema.properties.installation.oneOf.length,2);
