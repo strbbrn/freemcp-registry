@@ -21,3 +21,7 @@ UPDATE servers SET details_json = json_patch(details_json, '{"lifecycle":"archiv
  WHERE id = 'fixture-02';
 UPDATE servers SET details_json = json_patch(details_json, '{"githubMetadata":{"checkedAt":"2026-01-01T00:00:00Z","archived":false,"disabled":false}}')
  WHERE id = 'fixture-03';
+UPDATE servers SET details_json = json_patch(details_json, '{"lifecycle":"archived","lifecycleSource":"registry","githubMetadata":{"checkedAt":"2026-01-01T00:00:00Z","archived":true,"disabled":false}}')
+ WHERE id = 'fixture-04';
+UPDATE servers SET details_json = json_patch(details_json, '{"githubMetadata":{"checkedAt":"2026-01-01T00:00:00Z","archived":true,"disabled":true}}')
+ WHERE id = 'fixture-05';

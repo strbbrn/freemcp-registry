@@ -128,8 +128,9 @@ test('mobile themes, sponsorship, archive state, copy and badges', async ({ page
   await page.goto('/servers/sqlite-mcp');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
   await expect(page.locator('#github-stars')).toHaveText('42');
-  await expect(page.locator('#registry-lifecycle')).toHaveText('Registry: archived');
-  await expect(page.locator('#github-lifecycle')).toBeHidden();
+  await expect(page.locator('#lifecycle-badge')).toHaveText('Archived');
+  await expect(page.locator('#lifecycle-warning')).toContainText('FreeMCP lists this implementation as archived.');
+  await expect(page.locator('#lifecycle-warning')).not.toContainText('GitHub reports');
   await expect(page.locator('#github-lifecycle-value')).toHaveText('Active');
   await expect(page.locator('#freemcp-badge img')).toBeVisible();
   const loader = page.locator('#install-0');
@@ -215,15 +216,15 @@ test('live GitHub status supersedes synced status and failures retain labelled c
   await page.route('https://api.github.com/repos/example/fixture', route => route.fulfill({ status, json: metadata }));
   await page.goto('/servers/fixture-01');
   await expect(page.locator('#github-lifecycle-value')).toHaveText('Active');
-  await expect(page.locator('#github-lifecycle')).toBeHidden();
-  await expect(page.locator('#registry-lifecycle')).toHaveCount(0);
+  await expect(page.locator('#lifecycle-badge')).toBeHidden();
+  await expect(page.locator('#lifecycle-warning')).toBeHidden();
   await expect(page.locator('#summary-stars')).toHaveText('71');
   await page.evaluate(() => sessionStorage.clear());
 
   metadata = { stargazers_count: 72, archived: false, disabled: true };
   await page.goto('/servers/fixture-03');
-  await expect(page.locator('#github-lifecycle')).toHaveText('Repository disabled');
-  await expect(page.locator('#github-archive-notice')).toBeVisible();
+  await expect(page.locator('#lifecycle-badge')).toHaveText('Repository disabled');
+  await expect(page.locator('#lifecycle-warning')).toContainText('GitHub reports that this repository is disabled.');
   await page.evaluate(() => sessionStorage.clear());
 
   status = 503;
@@ -236,11 +237,42 @@ test('live GitHub status supersedes synced status and failures retain labelled c
     expect((await failed).status()).toBe(503);
     await expect(page.locator('#github-lifecycle-value')).toHaveText(expected);
     await expect(page.locator('#summary-stars')).toHaveText('0');
+    await expect(page.locator('#lifecycle-badge')).toHaveText('Archived');
     if (archived) {
-      await expect(page.locator('#github-lifecycle')).toHaveText('Repository archived (last checked)');
+      await expect(page.locator('#lifecycle-warning')).toContainText('At the last check, GitHub reported that this repository is archived.');
     } else {
-      await expect(page.locator('#github-lifecycle')).toBeHidden();
-      await expect(page.locator('#registry-lifecycle')).toHaveText('Registry: archived');
+      await expect(page.locator('#lifecycle-warning')).toContainText('FreeMCP lists this implementation as archived.');
     }
   }
+
+  const failed = page.waitForResponse('https://api.github.com/repos/example/fixture');
+  await page.goto('/servers/fixture-06');
+  await failed;
+  await expect(page.locator('#github-lifecycle-value')).toHaveText('Unavailable');
+  await expect(page.locator('#lifecycle-badge')).toBeHidden();
+  await expect(page.locator('#lifecycle-warning')).toBeHidden();
 });
+
+for (const width of [390, 1440]) {
+  test(`SQLite uses one lifecycle badge and warning at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.route('https://api.github.com/repos/modelcontextprotocol/servers-archived', route => route.fulfill({
+      json: { stargazers_count: 42, archived: true, disabled: false },
+    }));
+    await page.goto('/servers/sqlite-mcp');
+    await expect(page.locator('#github-lifecycle-value')).toHaveText('Archived');
+    await expect(page.locator('.meta .badge:visible')).toHaveCount(1);
+    await expect(page.locator('main > .notice:visible')).toHaveCount(1);
+    const warning = page.locator('#lifecycle-warning');
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText('FreeMCP lists this implementation as archived. GitHub reports that this repository is archived.');
+    await expect(page.locator('#lifecycle-badge')).toHaveText('Archived');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.reload();
+    await expect(page.locator('#github-lifecycle-value')).toHaveText('Archived (last checked)');
+    await expect(warning).toContainText('At the last check, GitHub reported');
+    await expect(page.locator('main > .notice:visible')).toHaveCount(1);
+    await page.goto('/servers/?q=sqlite');
+    await expect(page.locator('.server-row').filter({ has: page.locator('a[href="/servers/sqlite-mcp"]') }).locator('.status-pill')).toHaveText('Archived');
+  });
+}
