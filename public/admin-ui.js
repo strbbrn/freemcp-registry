@@ -13,7 +13,7 @@ if (theme) {
 }
 
 const editors = {
-  tools: [['name','Name'],['description','Description']],
+  tools: [['name','Tool name'],['description','Tool description']],
   endpoints: [['transport','Transport'],['url','HTTPS endpoint']],
   installations: [['title','Title'],['client','Client'],['os','Operating system'],['notes','Notes'],['config','Client configuration (JSON)']],
 };

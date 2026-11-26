@@ -66,8 +66,8 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
     await page.getByLabel('Description',{exact:true}).fill('A synthetic fixture.');
     await page.getByRole('button',{name:'Add tool',exact:true}).click();
     const entry=page.getByRole('group',{name:'Tools 1'});
-    await entry.getByLabel('Name',{exact:true}).fill('fixture_tool');
-    await entry.getByLabel('Description',{exact:true}).fill('Returns a synthetic result.');
+    await entry.getByLabel('Tool name',{exact:true}).fill('fixture_tool');
+    await entry.getByLabel('Tool description',{exact:true}).fill('Returns a synthetic result.');
     await page.getByLabel('Reason',{exact:true}).fill('Browser fixture');
     await page.getByRole('button',{name:'Create draft'}).click();
     await expect(page).toHaveURL(new RegExp('/admin/servers/'+id+'/$'));
