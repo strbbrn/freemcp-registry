@@ -1,0 +1,127 @@
+import { mkdir } from 'node:fs/promises';
+import { test, expect } from '@playwright/test';
+
+const local = !process.env.FREEMCP_TEST_URL;
+const origin = 'http://127.0.0.1:3011';
+const session = '__Host-freemcp-admin=' + 'L'.repeat(43);
+
+test('admin Pages routes fail closed and carry security headers', async ({ request }) => {
+  for (const path of ['/admin','/admin/','/admin/servers/new/','/admin/servers/sqlite-mcp/','/admin/import/',
+    '/admin/submissions/','/admin/submissions/42/','/admin/promotions/','/admin/sponsors/','/admin/activity/','/admin/settings/']) {
+    const response = await request.get(path,{maxRedirects:0});
+    expect([303,404,503], path).toContain(response.status());
+    expect(response.headers()['cache-control'],path).toMatch(/no-store/);
+    expect(response.headers()['x-robots-tag'],path).toMatch(/noindex/);
+  }
+  const response = await request.get('/api/admin/servers/',{maxRedirects:0});
+  expect([401,404,503]).toContain(response.status());
+  expect(response.headers()['cache-control']).toMatch(/no-store/);
+});
+
+async function authenticated(context) {
+  await context.addCookies([{name:'__Host-freemcp-admin',value:'L'.repeat(43),url:'https://127.0.0.1:3011/',
+    secure:true,httpOnly:true,sameSite:'Lax'}]);
+}
+test('real D1 rolls back changes when the audit insert fails', async ({request})=>{
+  test.skip(!local,'Requires isolated test D1 and a seeded fixture session');
+  const headers={Cookie:session,Origin:origin};
+  const identity=await request.get('/api/admin/session/',{headers});
+  expect(identity.status(),await identity.text()).toBe(200);
+  const {csrf}=await identity.json();
+  const draft={csrf,action:'create',reason:'Fixture audit rejected',id:'admin-audit-rollback',
+    name:'Atomic fixture',description:'This change is expected to roll back.',category:'Other',author:'Fixture',
+    tags:['synthetic'],github_url:'https://github.com/example/admin-audit-rollback'};
+  const response=await request.post('/api/admin/servers/',{headers,data:draft});
+  expect(response.status()).toBe(503);
+  expect((await request.get('/api/admin/servers/admin-audit-rollback/',{headers})).status()).toBe(404);
+  const noCsrf=await request.post('/api/admin/servers/',{headers,data:{...draft,csrf:'invalid'}});
+  expect(noCsrf.status()).toBe(403);
+  const badOrigin=await request.post('/api/admin/servers/',{headers:{...headers,Origin:'https://example.com'},data:draft});
+  expect(badOrigin.status()).toBe(403);
+});
+
+for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
+  test(`admin registry and promotions flow on ${device}`, async ({page,context,request})=>{
+    test.skip(!local,'Authenticated browser testing uses isolated local D1 fixtures');
+    const id='admin-ui-'+device, title='Maintainer\'s <em>listing</em> '+device;
+    await page.setViewportSize({width,height});
+    await authenticated(context);
+    await page.goto('/admin/');
+    await expect(page.getByRole('heading',{name:'Overview'})).toBeVisible();
+    await expect(page.locator('.environment')).toHaveText('Local fixture');
+    await expect(page.locator('.metric')).toHaveCount(5);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    if (process.env.FREEMCP_ADMIN_SCREENSHOTS) {
+      await mkdir(process.env.FREEMCP_ADMIN_SCREENSHOTS,{recursive:true});
+      await page.screenshot({path:process.env.FREEMCP_ADMIN_SCREENSHOTS+'/'+device+'-overview.png', animations:'disabled'});
+    }
+    await page.getByRole('link',{name:'Registry',exact:true}).click();
+    await page.getByRole('link',{name:'New listing'}).click();
+    await page.getByLabel('Listing ID',{exact:true}).fill(id);
+    await page.getByLabel('Name',{exact:true}).fill(title);
+    await page.getByLabel('Category',{exact:true}).fill('Other');
+    await page.getByLabel('Maintainer',{exact:true}).fill('Fixture');
+    await page.getByLabel('Repository URL').fill('https://github.com/example/'+id);
+    await page.getByLabel('Description',{exact:true}).fill('A synthetic fixture.');
+    await page.getByRole('button',{name:'Add tool',exact:true}).click();
+    const entry=page.getByRole('group',{name:'Tools 1'});
+    await entry.getByLabel('Name',{exact:true}).fill('fixture_tool');
+    await entry.getByLabel('Description',{exact:true}).fill('Returns a synthetic result.');
+    await page.getByLabel('Reason',{exact:true}).fill('Browser fixture');
+    await page.getByRole('button',{name:'Create draft'}).click();
+    await expect(page).toHaveURL(new RegExp('/admin/servers/'+id+'/$'));
+    await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
+    expect(await page.locator('h1 em').count()).toBe(0);
+    if (process.env.FREEMCP_ADMIN_SCREENSHOTS) {
+      await page.screenshot({path:process.env.FREEMCP_ADMIN_SCREENSHOTS+'/'+device+'-registry.png', animations:'disabled'});
+    }
+    expect((await request.get('/servers/'+id)).status()).toBe(404);
+    await page.getByRole('link',{name:'Preview',exact:true}).click();
+    await expect(page.getByText('fixture_tool · Returns a synthetic result.')).toBeVisible();
+    await page.getByRole('link',{name:'Back to editor'}).click();
+    const publish=page.locator('form').filter({has:page.getByRole('button',{name:'Publish listing',exact:true})});
+    await publish.getByLabel('Reason').fill('Publish test candidate');
+    await publish.getByLabel('Confirm this publication change.').check();
+    await publish.getByRole('button',{name:'Publish listing'}).click();
+    const unpublish=page.locator('form').filter({has:page.getByRole('button',{name:'Unpublish listing',exact:true})});
+    await expect(unpublish).toBeVisible();
+    expect((await request.get('/servers/'+id)).status()).toBe(200);
+    await unpublish.getByLabel('Reason').fill('Unpublish test candidate');
+    await unpublish.getByLabel('Confirm this publication change.').check();
+    await unpublish.getByRole('button',{name:'Unpublish listing'}).click();
+    await expect(page.getByRole('button',{name:'Publish listing',exact:true})).toBeVisible();
+    expect((await request.get('/servers/'+id)).status()).toBe(404);
+
+    await page.getByRole('link',{name:'Promotions',exact:true}).click();
+    await page.getByRole('link',{name:'New promotion'}).click();
+    await page.getByLabel('Promotion ID').fill(id+'-promo');
+    await page.getByLabel('Headline').fill('Fixture promotion '+device);
+    await page.getByLabel('HTTPS destination').fill('https://example.com/');
+    await page.getByLabel('home · primary').check();
+    await page.getByLabel('detail · bottom').check();
+    await page.getByLabel('Reason').fill('Promotion layout test');
+    await page.getByRole('button',{name:'Create promotion'}).click();
+    await expect(page.getByRole('link',{name:'Fixture promotion '+device,exact:true})).toHaveCount(2);
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.getByRole('button',{name:'Toggle color theme'}).click();
+    await expect(page.locator('html')).toHaveAttribute('data-theme','light');
+  });
+}
+
+test('sponsorship edits preserve the public three-tier layout', async ({page,context,request})=>{
+  test.skip(!local,'Requires isolated test D1 and a seeded fixture session');
+  await authenticated(context);
+  await page.goto('/admin/sponsors/');
+  const gold=page.locator('section.panel').filter({has:page.getByRole('heading',{name:'Gold',exact:true})});
+  await gold.getByLabel('Tier name').fill('Gold fixture');
+  await gold.getByLabel('Status').selectOption('active');
+  await gold.getByLabel('Reason').fill('Sponsorship browser fixture');
+  const saved=page.waitForResponse(response=>response.url().endsWith('/api/admin/sponsors/gold/') && response.status()===200);
+  await gold.getByRole('button',{name:'Save tier'}).click();
+  await saved;
+  const publicPage=await request.get('/');
+  const text=await publicPage.text();
+  expect(text).toContain('Gold fixture');
+  expect(text).toMatch(/sponsor-tier (gold|diamond|platinum)/);
+  expect((text.match(/class="sponsor-tier (?:gold|diamond|platinum)"/g)||[]).length).toBe(3);
+});
