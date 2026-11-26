@@ -10,6 +10,7 @@ import { onRequestGet as detail } from '../functions/servers/[id].js';
 import { onRequestGet as sitemap } from '../functions/sitemap.xml.js';
 import { registryLifecycle, storedRepositoryStatus } from '../lib/lifecycle.js';
 import { discoveryManifest, openApi } from '../lib/discovery.js';
+import { directoryRow } from '../lib/registry-pages.js';
 import { readFilters, registry } from '../lib/registry.js';
 import { canonicalUrl, directoryPath, escapeHtml, jsonLd, metadata, safeHttps } from '../lib/seo.js';
 import { SITEMAP_SIZE, escapeXml, sitemapIndexXml, sitemapXml } from '../lib/sitemap.js';
@@ -217,11 +218,22 @@ test('registry lifecycle and last-known GitHub repository status are separate', 
   assert.equal(publicStatus('fixture-03'), 'active');
 
   const archivedHtml = await (await detail({ env, params: { id: 'fixture-01' } })).text();
-  assert.match(archivedHtml, /Repository archived \(last checked\)/);
-  assert.doesNotMatch(archivedHtml, /Registry: archived/);
+  assert.match(archivedHtml, /Archived \(last checked\)/);
+  assert.match(archivedHtml, /At the last check, GitHub reported that this repository is archived/);
+  assert.doesNotMatch(archivedHtml, /FreeMCP lists this implementation as archived/);
   const editorialHtml = await (await detail({ env, params: { id: 'fixture-02' } })).text();
-  assert.match(editorialHtml, /Registry: archived/);
+  assert.match(editorialHtml, /FreeMCP lists this implementation as archived/);
   assert.match(editorialHtml, /Active \(last checked\)/);
+  const combinedHtml = await (await detail({ env, params: { id: 'fixture-04' } })).text();
+  assert.equal((combinedHtml.match(/id="lifecycle-badge"/g) ?? []).length, 1);
+  assert.equal((combinedHtml.match(/id="lifecycle-warning"/g) ?? []).length, 1);
+  assert.match(combinedHtml, /FreeMCP lists this implementation as archived. At the last check, GitHub reported that this repository is archived/);
+
+  const directory = await store.directory({ q: '', category: 'Fixture', sort: 'name', page: 1, size: 24, includeCategories: true });
+  const archivedCard = directoryRow(directory.servers.find(row => row.id === 'fixture-04'));
+  const disabledCard = directoryRow(directory.servers.find(row => row.id === 'fixture-05'));
+  assert.match(archivedCard, /GitHub: Archived \(last checked\)">Archived<\/span>/);
+  assert.match(disabledCard, /GitHub: Disabled \(last checked\)">Repository disabled<\/span>/);
 });
 
 test('discovery artifacts pass both pinned upstream schemas and describe only the read-only API', () => {
