@@ -156,6 +156,24 @@ test('sponsorship edits preserve the public three-tier layout', async ({page,con
   await page.goto('/admin/sponsors/');
   const gold=page.locator('#sponsorship-gold');
   await gold.locator('summary').first().click();
+  await page.setViewportSize({width:360,height:800});
+  await page.getByRole('button',{name:'Toggle color theme'}).click();
+  const preview=gold.locator('[data-sponsor-preview]');
+  await gold.getByLabel('Tier name').fill('Gold fixture <img src=x>');
+  await gold.getByLabel('Description').fill('Unsaved description');
+  await gold.getByLabel('Button text').fill('Review <b>now</b>');
+  await expect(preview.getByRole('heading')).toHaveText('Gold fixture <img src=x>');
+  await expect(preview.locator('p')).toHaveText('Unsaved description');
+  await expect(preview.getByRole('link')).toHaveAccessibleName('Preview of Review <b>now</b>');
+  await expect(preview.locator('img,b')).toHaveCount(0);
+  await expect(preview.locator('.tier-label')).toHaveCSS('color','rgb(115, 80, 0)');
+  const diamond=page.locator('#sponsorship-diamond');
+  await diamond.locator('summary').first().click();
+  await expect(diamond.locator('.tier-label')).toHaveCSS('color','rgb(0, 87, 117)');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  expect(await (await request.get('/')).text()).not.toContain('Unsaved description');
+  const before=await request.get('/api/admin/sponsors/gold/',{headers:{Cookie:session}});
+  expect((await before.json()).sponsor).toBeNull();
   await gold.getByLabel('Tier name').fill('Gold fixture');
   await gold.getByLabel('Status').selectOption('active');
   await gold.getByLabel('Reason',{exact:true}).fill('Sponsorship browser fixture');
@@ -264,3 +282,44 @@ for (const width of [320,390,430,1440]) {
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
   });
 }
+
+test('mobile campaign editor keeps restored placements available for a synchronized pause',async ({page,context,request})=>{
+  test.skip(!local,'Requires isolated D1 campaigns and a seeded session');
+  await page.setViewportSize({width:390,height:850});
+  await authenticated(context);
+  const headers={Cookie:session,Origin:origin};
+  const {csrf}=await (await request.get('/api/admin/session/',{headers})).json();
+  const fixture={action:'create',id:'browser-campaign',headline:'Original campaign',description:'Original description',cta_text:'Open original',eyebrow:'Fixture',
+    target_url:'https://example.org/',theme:'violet',status:'active',weight:1,rotation_seconds:7,confirm:'yes',reason:'Mobile campaign fixture',
+    placements:['home/primary','directory/primary','detail/primary']};
+  const post=async (id,data)=>{
+    const res=await request.post('/api/admin/promotions/'+(id?id+'/':''),{headers,data:{csrf,...data}});
+    expect(res.status(),await res.text()).toBe(200);
+    return res.json();
+  };
+  const {data:{ids:[home,directory,detail]}}=await post(null,fixture);
+  const revision=async id=>(await (await request.get('/api/admin/promotions/'+id+'/',{headers})).json()).version;
+  await post(home,{...fixture,action:'save',headline:'Edited campaign',description:'Edited description',cta_text:'Open edited',
+    version:await revision(home),['also_'+directory]:'yes',['version_'+directory]:await revision(directory),
+    ['also_'+detail]:'yes',['version_'+detail]:await revision(detail)});
+  await page.goto('/admin/promotions/?id='+detail);
+  await page.locator('summary',{hasText:/^History$/}).click();
+  await page.locator('summary',{hasText:/^Restore previous values$/}).first().click();
+  const restore=page.locator('form').filter({has:page.getByRole('button',{name:'Restore revision',exact:true})});
+  await restore.getByLabel('Reason',{exact:true}).fill('Restore only detail');
+  await restore.getByRole('checkbox').check();
+  await restore.getByRole('button',{name:'Restore revision',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Original campaign',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Campaign placements'})).toBeVisible();
+  const pause=page.locator('form').filter({has:page.getByRole('button',{name:'Pause promotion',exact:true})});
+  await pause.locator('summary',{hasText:'Select associated placements'}).click();
+  for(const label of ['Pause home / primary · active','Pause directory / primary · active']) await pause.getByLabel(label,{exact:true}).check();
+  await pause.getByLabel('Reason',{exact:true}).fill('Pause the complete UAT fixture');
+  await pause.getByLabel('Pause the selected placements.',{exact:true}).check();
+  await pause.getByRole('button',{name:'Pause promotion',exact:true}).click();
+  await page.waitForURL(/\/admin\/promotions\/$/);
+  for(const id of [home,directory,detail]) {
+    const result=await request.get('/api/admin/promotions/'+id+'/',{headers});
+    expect((await result.json()).promotion.status).toBe('paused');
+  }
+});

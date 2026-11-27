@@ -17,7 +17,7 @@ const now=()=>Math.floor(Date.now()/1000);
 function fixture(t) {
   const sqlite=new DatabaseSync(':memory:');
   t.after(()=>sqlite.close());
-  for (const name of ['0001_servers','0002_server_details','0007_promotions','0008_promotion_slots','0010_admin','0011_admin_outbox_decisions','0012_admin_github_evidence']) {
+  for (const name of ['0001_servers','0002_server_details','0007_promotions','0008_promotion_slots','0010_admin','0011_admin_outbox_decisions','0012_admin_github_evidence','0013_promotion_campaigns']) {
     sqlite.exec(readFileSync(new URL('../migrations/'+name+'.sql',import.meta.url),'utf8'));
   }
   const statement=(sql,args=[])=>({
@@ -318,7 +318,8 @@ test('outbox is disabled in preview and supports a retry after failure without r
   const id=token();
   sqlite.prepare('INSERT INTO submission_reviews VALUES(?,?,?,?,?,?,?,?)')
     .run(42,'published','hash','commit','{}','12345','date','fixture');
-  sqlite.prepare('INSERT INTO admin_outbox(id,issue_number,action,message) VALUES(?,?,?,?)').run(id,42,'published','Fixture');
+  const decision='production:'+await version(await reviewRow(config.db,42));
+  sqlite.prepare('INSERT INTO admin_outbox(id,issue_number,action,message,decision_version) VALUES(?,?,?,?,?)').run(id,42,'published','Fixture',decision);
   const env={ADMIN_GITHUB_SYNC:'enabled',ADMIN_GITHUB_APP_ID:'11',ADMIN_GITHUB_INSTALLATION_ID:'22',ADMIN_GITHUB_APP_PRIVATE_KEY:'fixture'};
   let deliveries=0;
   const send=async()=>{if (++deliveries===1) throw Error('fixture failure');};
@@ -326,7 +327,9 @@ test('outbox is disabled in preview and supports a retry after failure without r
   const production={...config,mode:'production'};
   assert.deepEqual(await retryIssue(production,env,'12345',id,reason,send),{status:'failed'});
   assert.ok(sqlite.prepare('SELECT next_retry FROM admin_outbox WHERE id=?').get(id).next_retry>now());
-  sqlite.prepare('UPDATE admin_outbox SET next_retry=0 WHERE id=?').run(id);
+  sqlite.prepare("UPDATE admin_outbox SET next_retry=0,status='sending',lease_until=? WHERE id=?").run(now()+120,id);
+  await assert.rejects(()=>retryIssue(production,env,'12345',id,reason,send),{status:409});
+  sqlite.prepare('UPDATE admin_outbox SET lease_until=? WHERE id=?').run(now()-1,id);
   assert.deepEqual(await retryIssue(production,env,'12345',id,reason,send),{status:'sent'});
   await assert.rejects(()=>retryIssue(production,env,'12345',id,reason,send),{status:409});
   assert.equal(deliveries,2);
@@ -363,14 +366,15 @@ test('GitHub retry recognizes a bot-authored delivery marker before posting anot
   const pair=await crypto.subtle.generateKey({name:'RSASSA-PKCS1-v1_5',modulusLength:2048,
     publicExponent:new Uint8Array([1,0,1]),hash:'SHA-256'},true,['sign','verify']);
   const bytes=new Uint8Array(await crypto.subtle.exportKey('pkcs8',pair.privateKey));
-  const env={ADMIN_GITHUB_APP_ID:'11',ADMIN_GITHUB_INSTALLATION_ID:'22',
+  const env={ADMIN_ENV:'production',CF_PAGES_BRANCH:'main',ADMIN_GITHUB_SYNC:'enabled',ADMIN_GITHUB_APP_ID:'11',ADMIN_GITHUB_INSTALLATION_ID:'22',
     ADMIN_GITHUB_APP_PRIVATE_KEY:'-----BEGIN PRIVATE KEY-----\n'+btoa(String.fromCharCode(...bytes))+'\n-----END PRIVATE KEY-----'};
   const item={id:'delivery-fixture',issue_number:42,action:'published',message:'Fixture notification'};
   const calls=[];
+  let commentPosted=true,failLabels=false;
   t.mock.method(globalThis,'fetch',async (path,options)=>{
     const url=new URL(path);
     assert.equal(url.origin,'https://api.github.com');
-    calls.push([options.method,url.pathname]);
+    calls.push([options.method,url.pathname,options.body&&JSON.parse(options.body)]);
     if (url.pathname==='/app') return Response.json({slug:'fixture-app'});
     if (url.pathname.endsWith('/access_tokens')) {
       assert.deepEqual(JSON.parse(options.body),{repositories:['freemcp-registry'],permissions:{issues:'write'}});
@@ -378,16 +382,32 @@ test('GitHub retry recognizes a bot-authored delivery marker before posting anot
     }
     if (url.pathname.endsWith('/comments')&&options.method==='GET') {
       const marker='<!-- freemcp-admin:delivery-fixture -->';
-      return Response.json([{body:marker,user:{login:'fixture-app[bot]'}}]);
+      return Response.json(commentPosted?[{body:marker,user:{login:'fixture-app[bot]'}}]:[]);
     }
+    if (url.pathname.endsWith('/comments')&&options.method==='POST') commentPosted=true;
+    if(failLabels&&url.pathname.endsWith('/labels')&&options.method==='POST') return Response.json({},{status:502});
     return Response.json({});
   });
+  await assert.rejects(()=>deliverIssueUpdate({...env,ADMIN_ENV:'preview'},item),{status:503});
+  assert.equal(calls.length,0);
   await deliverIssueUpdate(env,item);
   assert.ok(!calls.some(([method,path])=>method==='POST'&&path.endsWith('/comments')));
   assert.ok(calls.some(([method,path])=>method==='POST'&&path.endsWith('/labels')));
   assert.deepEqual(calls.filter(([method])=>method==='DELETE').map(([,path])=>path.split('/').at(-1)),
     ['freemcp-needs-clarification','freemcp-rejected']);
-  assert.ok(calls.some(([method,path])=>method==='PATCH'&&path.endsWith('/issues/42')));
+  assert.ok(calls.some(([method,path,body])=>method==='PATCH'&&path.endsWith('/issues/42')&&body.state_reason==='completed'));
+  calls.length=0;
+  commentPosted=false;
+  failLabels=true;
+  await assert.rejects(()=>deliverIssueUpdate(env,{...item,action:'clarification'}),{status:502});
+  failLabels=false;
+  await deliverIssueUpdate(env,{...item,action:'clarification'});
+  assert.equal(calls.filter(([method,path])=>method==='POST'&&path.endsWith('/comments')).length,1);
+  assert.deepEqual(calls.at(-1),['PATCH','/repos/strbbrn/freemcp-registry/issues/42',{state:'open'}]);
+  assert.ok(calls.some(([method,path,body])=>method==='POST'&&path.endsWith('/labels')&&body.labels.includes('freemcp-needs-clarification')));
+  calls.length=0;
+  await assert.rejects(()=>deliverIssueUpdate(env,item,async()=>false),{status:409});
+  assert.ok(calls.every(([method,path])=>method==='GET'||path.endsWith('/access_tokens')));
 });
 
 test('OAuth callback reports safe stage errors and consumes failed states', async t=>{
@@ -550,6 +570,13 @@ test('superseded outbox decisions do not call GitHub and remain distinct from de
   assert.equal(called,false);
   assert.equal(result.status,'superseded');
   assert.equal(sqlite.prepare('SELECT resolution FROM admin_outbox WHERE id=?').get(id).resolution,'superseded');
+  for (const fingerprint of ['preview:'+await version(await reviewRow(config.db,42)),null]) {
+    const copied=token();
+    sqlite.prepare('INSERT INTO admin_outbox(id,issue_number,action,message,decision_version) VALUES(?,?,?,?,?)')
+      .run(copied,42,'published','Fixture',fingerprint);
+    assert.deepEqual(await retryIssue({...config,mode:'production'},env,'12345',copied,reason,async()=>{called=true;}),{status:'superseded'});
+  }
+  assert.equal(called,false);
 });
 
 test('transport resolution uses Agenterm and legacy install shapes and preserves raw values on unrelated edits',async ()=>{
@@ -785,4 +812,113 @@ test('expired cooldown allows one probe across different evidence keys', async t
   } finally { respond(); }
   assert.deepEqual((await first).data,{id:1});
   assert.equal(sqlite.prepare('SELECT blocked_until FROM admin_github_rate WHERE scope=?').get(config.mode).blocked_until,0);
+});
+
+test('individual detail restore preserves the campaign through synchronized pause, activation and revision restoration',async t=>{
+  const {config,sqlite}=fixture(t),db=config.db;
+  const {getPromotion,promotionPeers}=await import('../lib/admin/promotions.js');
+  const input={action:'create',id:'uat-campaign',headline:'Before',eyebrow:'Fixture',description:'Before description',
+    cta_text:'Before button',target_url:'https://example.org/',theme:'violet',weight:1,rotation_seconds:7,status:'draft',
+    placements:['home/primary','directory/primary','detail/primary'],reason};
+  const ids=await editPromotion(config,'12345',null,input);
+  const [home,directory,detail]=ids;
+  const unrelated=(await editPromotion(config,'12345',null,{...input,id:'same-copy-independent',placements:['home/strip']}))[0];
+  const snapshot=id=>getPromotion(db,id);
+  const submit=async (id,action,others=[],extra={})=>{
+    const posts={reason,action,confirm:'yes',version:await version(await snapshot(id)),...extra};
+    for(const peer of others) {
+      posts['also_'+peer]='yes';
+      posts['version_'+peer]=await version(await snapshot(peer));
+    }
+    return editPromotion(config,'12345',id,posts);
+  };
+  await submit(home,'activate',[directory,detail]);
+  await submit(home,'save',[directory,detail],{...input,action:'save',headline:'After',description:'After description',cta_text:'After button',status:'active'});
+  const revision=(id,action)=>sqlite.prepare("SELECT id FROM admin_audit_log WHERE entity='promotion' AND entity_id=? AND action=? ORDER BY rowid DESC LIMIT 1").get(id,action).id;
+  await submit(detail,'restore',[],{revision:revision(detail,'save')});
+  assert.deepEqual((await Promise.all(ids.map(snapshot))).map(row=>[row.headline,row.description,row.cta_text]),[
+    ['After','After description','After button'],['After','After description','After button'],['Before','Before description','Before button']]);
+  for (const id of ids) {
+    assert.deepEqual(new Set((await promotionPeers(db,await snapshot(id))).map(row=>row.id)),new Set(ids.filter(other=>other!==id)));
+    assert.notEqual((await snapshot(id)).campaign_id,(await snapshot(unrelated)).campaign_id);
+  }
+  await submit(detail,'pause');
+  await submit(home,'save',[detail],{...input,action:'save',headline:'Save while mixed',status:'active'});
+  assert.equal((await snapshot(detail)).status,'paused');
+  await submit(directory,'pause',[home,detail]);
+  assert.deepEqual((await Promise.all(ids.map(snapshot))).map(row=>row.status),['paused','paused','paused']);
+  await submit(home,'activate',[directory,detail]);
+  const oldCampaign=(await snapshot(home)).campaign_id;
+  const priorRows=await Promise.all(ids.map(snapshot));
+  const restore={revision:revision(home,'pause'),['revision_'+directory]:revision(directory,'pause'),['revision_'+detail]:revision(detail,'pause')};
+  sqlite.exec("CREATE TRIGGER ignore_detail_restore BEFORE INSERT ON admin_audit_log WHEN NEW.entity_id='uat-campaign-detail-primary' AND NEW.action='restore' BEGIN SELECT RAISE(IGNORE); END;");
+  await assert.rejects(()=>submit(home,'restore',[directory,detail],restore),{status:409});
+  assert.deepEqual(await Promise.all(ids.map(snapshot)),priorRows);
+  sqlite.exec('DROP TRIGGER ignore_detail_restore');
+  await submit(home,'restore',[directory,detail],restore);
+  const restored=await Promise.all(ids.map(snapshot));
+  assert.deepEqual(restored.map(row=>row.status),['active','active','paused']);
+  assert.ok(restored.every(row=>row.campaign_id===oldCampaign));
+  const audit=sqlite.prepare("SELECT json_extract(after_json,'$.operationId') AS operation FROM admin_audit_log WHERE action='restore' ORDER BY rowid DESC LIMIT 3").all();
+  assert.ok(audit[0].operation);
+  assert.equal(new Set(audit.map(row=>row.operation)).size,1);
+});
+
+test('campaign migration preserves production seed payloads, existing UAT records and unrelated legacy identities',async t=>{
+  const sqlite=new DatabaseSync(':memory:');
+  t.after(()=>sqlite.close());
+  const apply=name=>sqlite.exec(readFileSync(new URL('../migrations/'+name+'.sql',import.meta.url),'utf8'));
+  for(const name of ['0007_promotions','0008_promotion_slots','0009_directory_footer_promotion','0010_admin']) apply(name);
+  const add=sqlite.prepare(`INSERT INTO promotions(id,placement,slot,eyebrow,headline,description,cta_text,target_url,theme,status)
+    VALUES(?,?,'primary','Fixture','Identical','Same text','Open','https://example.org/','violet',?)`);
+  add.run('independent-home','home','active');
+  add.run('independent-detail','detail','paused');
+  for(const placement of ['home','directory','detail']) {
+    const id='preview-test-promo-'+placement+'-primary';
+    add.run(id,placement,placement==='detail'?'paused':'active');
+    sqlite.prepare(`INSERT INTO admin_audit_log(id,actor,action,entity,entity_id,reason,before_json,after_json,created_at)
+      VALUES(?,'12345','create','promotion',?,'UAT fixture','null','{}','2026-11-27 18:52:03')`).run(id,id);
+  }
+  const before=sqlite.prepare('SELECT * FROM promotions ORDER BY id').all();
+  apply('0013_promotion_campaigns');
+  const rows=sqlite.prepare('SELECT * FROM promotions ORDER BY id').all();
+  assert.deepEqual(rows.map(({campaign_id,...row})=>row),before.map(row=>({...row})));
+  assert.equal(rows.filter(row=>row.campaign_id==='catalog:agentagi').length,8);
+  assert.equal(rows.filter(row=>row.campaign_id==='uat:preview-test-promo').length,3);
+  assert.equal(rows.find(row=>row.id==='independent-home').campaign_id,'legacy:independent-home');
+  assert.equal(rows.find(row=>row.id==='independent-detail').campaign_id,'legacy:independent-detail');
+  assert.throws(()=>sqlite.exec("UPDATE promotions SET campaign_id='unrelated' WHERE id='agentagi-home'"),/immutable/);
+  add.run('old-deploy-insert','home','draft');
+  assert.equal(sqlite.prepare("SELECT campaign_id FROM promotions WHERE id='old-deploy-insert'").get().campaign_id,'legacy:old-deploy-insert');
+});
+
+test('all mutation routes reject missing CSRF and cross-origin authenticated requests',async t=>{
+  const {config,sqlite,env}=fixture(t);
+  const raw=await seedSession(sqlite,config);
+  const headers={Cookie:sessionCookie(raw),'Content-Type':'application/json'};
+  const {csrf}=await (await run(env,'/api/admin/session/',{headers})).json();
+  for(const path of ['/api/admin/servers/','/api/admin/submissions/47/','/api/admin/promotions/','/api/admin/sponsors/gold/',
+    '/api/admin/import/','/api/admin/outbox/'+token()+'/','/api/admin/session/']) {
+    assert.equal((await run(env,path,{method:'POST',headers:{...headers,Origin:preview},body:'{}'})).status,403,path);
+    assert.equal((await run(env,path,{method:'POST',headers:{...headers,Origin:prod},body:JSON.stringify({csrf})})).status,403,path);
+  }
+  for (const path of ['/api/admin/servers/draft-fixture/','/api/admin/submissions/47/']) {
+    assert.equal((await run(env,path,{method:'POST',headers:{Origin:preview,'Content-Type':'application/json'},
+      body:'{"action":"preview-candidate"}'})).status,401);
+  }
+});
+
+test('a preview cookie and write stay on the preview binding',async t=>{
+  const localPreview=fixture(t), localProduction=fixture(t);
+  const raw=await seedSession(localPreview.sqlite,localPreview.config);
+  const headers={Cookie:sessionCookie(raw),'Content-Type':'application/json',Origin:preview};
+  const {csrf}=await (await run(localPreview.env,'/api/admin/session/',{headers})).json();
+  const payload={...candidate('isolated-preview-only','https://github.com/example/isolated-preview'),csrf,action:'create',reason};
+  const opts={method:'POST',headers,body:JSON.stringify(payload)};
+  const productionEnv={...localProduction.env,ADMIN_ENV:'production',CF_PAGES_BRANCH:'main'};
+  assert.equal((await run(productionEnv,'/api/admin/servers/',opts,preview)).status,404);
+  assert.equal((await run(productionEnv,'/api/admin/servers/',opts,prod)).status,401);
+  assert.equal((await run(localPreview.env,'/api/admin/servers/',opts)).status,200);
+  assert.ok(await serverRow(localPreview.config.db,payload.id));
+  assert.equal(await serverRow(localProduction.config.db,payload.id),null);
 });

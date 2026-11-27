@@ -264,3 +264,18 @@ for (const form of document.querySelectorAll('form[data-admin-mutation]')) {
     } finally { if (submit) submit.disabled = false; }
   });
 }
+
+for (const card of document.querySelectorAll('[data-sponsor-preview]')) {
+  const tier=card.closest('[id^="sponsorship-"]');
+  const form=tier?.querySelector('form[data-admin-mutation]');
+  if (!form) continue;
+  const refresh=()=>{
+    for (const target of card.querySelectorAll('[data-preview-field]')) {
+      target.textContent=form.elements.namedItem(target.dataset.previewField).value;
+    }
+    card.querySelector('a').setAttribute('aria-label','Preview of '+form.elements.namedItem('cta_text').value);
+  };
+  form.addEventListener('input',refresh);
+  window.addEventListener('pageshow',refresh);
+  refresh();
+}
