@@ -310,7 +310,7 @@ test('mobile campaign editor keeps restored placements available for a synchroni
   await restore.getByRole('checkbox').check();
   await restore.getByRole('button',{name:'Restore revision',exact:true}).click();
   await expect(page.getByRole('heading',{name:'Original campaign',exact:true})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'Campaign placements'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Campaign placements',exact:true})).toBeVisible();
   const pause=page.locator('form').filter({has:page.getByRole('button',{name:'Pause promotion',exact:true})});
   await pause.locator('summary',{hasText:'Select associated placements'}).click();
   for(const label of ['Pause home / primary · active','Pause directory / primary · active']) await pause.getByLabel(label,{exact:true}).check();
