@@ -11,3 +11,9 @@ database_id = "21a0f980-a749-4c69-b1b5-3d57d3a646c8"
 binding = "DB"
 database_name = "freemcp-preview-registry"
 database_id = "1d3540c0-d836-4f8e-b048-fd22d780b46b"
+
+[vars]
+ADMIN_ENV = "production"
+
+[env.preview.vars]
+ADMIN_ENV = "preview"

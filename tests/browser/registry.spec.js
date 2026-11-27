@@ -92,7 +92,7 @@ test('desktop search, filters, sorting, pagination and history', async ({ page }
   await expect(page.locator('.server-row h2').filter({ hasText: /sqlite/i }).first()).toBeVisible();
   await page.goto('/servers/');
   await page.locator('#registry-sort').selectOption('category');
-  await expect(page).toHaveURL(/sort=category$/);
+  await page.waitForURL(/sort=category$/,{waitUntil:'load'});
   const categories = await page.locator('#registry-category option').allTextContents();
   const chosen = categories.find(category => category === 'Fixture') || categories[1];
   await page.locator('#registry-category').selectOption(chosen);
