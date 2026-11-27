@@ -262,6 +262,13 @@ test('GitHub reviews verify issue and source revisions before atomic publication
   assert.equal(first.comments.next,true);
   assert.equal(first.comments.items[0].body,'<em>comment</em>');
   const before=await version(null);
+  const {reviewDuplicate}=await import('../lib/admin/submissions.js');
+  const duplicate=await editServer(config,'12345',null,{...candidate('alternate-submission','https://github.com/example/submitted'),action:'create',reason});
+  assert.equal((await reviewDuplicate(config,first,null)).id,duplicate.id);
+  await assert.rejects(()=>reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',
+    confirm:'yes',version:before,fingerprint:first.fingerprint,reason,
+    publicationExceptions:{tools:'Fixture only',prerequisites:'Fixture only',security:'Fixture only'}}),/already listed under alternate-submission/);
+  sqlite.prepare('DELETE FROM servers WHERE id=?').run(duplicate.id);
   await reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',publicationExceptions:{tools:'Fixture has no tools',prerequisites:'Fixture has no prerequisites',security:'Fixture uses synthetic data'},confirm:'yes',version:before,fingerprint:first.fingerprint,reason});
   const review=await reviewRow(config.db,42);
   assert.equal(review.status,'approved');
@@ -378,6 +385,8 @@ test('GitHub retry recognizes a bot-authored delivery marker before posting anot
   await deliverIssueUpdate(env,item);
   assert.ok(!calls.some(([method,path])=>method==='POST'&&path.endsWith('/comments')));
   assert.ok(calls.some(([method,path])=>method==='POST'&&path.endsWith('/labels')));
+  assert.deepEqual(calls.filter(([method])=>method==='DELETE').map(([,path])=>path.split('/').at(-1)),
+    ['freemcp-needs-clarification','freemcp-rejected']);
   assert.ok(calls.some(([method,path])=>method==='PATCH'&&path.endsWith('/issues/42')));
 });
 

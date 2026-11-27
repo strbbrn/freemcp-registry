@@ -7,6 +7,7 @@ BEGIN
 END;
 CREATE TRIGGER test_admin_audit_ignored BEFORE INSERT ON admin_audit_log
   WHEN NEW.reason='Fixture audit omitted'
+  OR (NEW.reason='Fixture placement audit omitted' AND NEW.entity_id LIKE '%detail-bottom')
 BEGIN
   SELECT RAISE(IGNORE);
 END;

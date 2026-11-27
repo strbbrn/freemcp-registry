@@ -37,6 +37,13 @@ test('real D1 rolls back changes when the audit insert fails', async ({request})
   const omitted={...draft,id:'admin-audit-omitted',github_url:'https://github.com/example/admin-audit-omitted',reason:'Fixture audit omitted'};
   expect((await request.post('/api/admin/servers/',{headers,data:omitted})).status()).toBe(409);
   expect((await request.get('/api/admin/servers/admin-audit-omitted/',{headers})).status()).toBe(404);
+  const promotion={csrf,action:'create',reason:'Fixture placement audit omitted',id:'admin-omit-promo',headline:'Omitted',
+    eyebrow:'Fixture',description:'Rollback',cta_text:'Visit',target_url:'https://example.com/',theme:'violet',
+    weight:1,rotation_seconds:7,status:'draft',placements:['home/primary','detail/bottom']};
+  expect((await request.post('/api/admin/promotions/',{headers,data:promotion})).status()).toBe(409);
+  for (const slot of ['home-primary','detail-bottom']) {
+    expect((await request.get('/api/admin/promotions/admin-omit-promo-'+slot+'/',{headers})).status()).toBe(404);
+  }
   const noCsrf=await request.post('/api/admin/servers/',{headers,data:{...draft,csrf:'invalid'}});
   expect(noCsrf.status()).toBe(403);
   const badOrigin=await request.post('/api/admin/servers/',{headers:{...headers,Origin:'https://example.com'},data:draft});
