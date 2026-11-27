@@ -124,8 +124,16 @@ pre{background:var(--field);padding:.65rem;border-radius:7px;white-space:pre-wra
   .stage-links a{flex:1 1 auto;justify-content:center}
 }
 
+.listing-json {
+  min-width: 0;
+}
 .listing-json textarea {
   min-height: 14rem;
   font: 0.9rem/1.5 ui-monospace, monospace;
   overflow-wrap: anywhere;
+}
+.listing-json .row-actions button {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: center;
 }
