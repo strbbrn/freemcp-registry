@@ -79,7 +79,7 @@ for (const input of document.querySelectorAll('textarea[data-structured]')) {
 
 for (const form of document.querySelectorAll('form[data-admin-mutation]')) {
   form.addEventListener('submit', async event => {
-    if (event.submitter?.value === 'preview-edit') return;
+    if (['preview-edit','preview-listing'].includes(event.submitter?.value)) return;
     event.preventDefault();
     const feedback = form.querySelector('.form-feedback');
     const submit = event.submitter;

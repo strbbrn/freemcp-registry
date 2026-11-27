@@ -17,7 +17,7 @@ const now=()=>Math.floor(Date.now()/1000);
 function fixture(t) {
   const sqlite=new DatabaseSync(':memory:');
   t.after(()=>sqlite.close());
-  for (const name of ['0001_servers','0002_server_details','0007_promotions','0008_promotion_slots','0010_admin']) {
+  for (const name of ['0001_servers','0002_server_details','0007_promotions','0008_promotion_slots','0010_admin','0011_admin_outbox_decisions']) {
     sqlite.exec(readFileSync(new URL('../migrations/'+name+'.sql',import.meta.url),'utf8'));
   }
   const statement=(sql,args=[])=>({
@@ -140,16 +140,16 @@ test('OAuth refuses GitHub identity redirects without exposing provider details'
   assert.equal(fetchMock.mock.callCount(),2);
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS total FROM admin_sessions').get().total,0);
 });
-async function seedSession(sqlite,mode='preview',expires=now()+4000) {
+async function seedSession(sqlite,config,mode='preview',expires=now()+4000) {
   const raw=token();
-  sqlite.prepare('INSERT INTO admin_sessions VALUES(?,?,?,?,?,?)').run(await digest(raw),'12345','fixture',mode,expires,now()+7000);
+  sqlite.prepare('INSERT INTO admin_sessions VALUES(?,?,?,?,?,?)').run(await digest(config.secret+'\nsession\n'+raw),'12345','fixture',mode,expires,now()+7000);
   return raw;
 }
 test('session expiry, environment, rotation, logout and CSRF', async t=>{
   const {env,config,sqlite}=fixture(t);
-  const raw=await seedSession(sqlite);
-  const other=await seedSession(sqlite,'production');
-  const expired=await seedSession(sqlite,'preview',now()-1);
+  const raw=await seedSession(sqlite,config);
+  const other=await seedSession(sqlite,config,'production');
+  const expired=await seedSession(sqlite,config,'preview',now()-1);
   for (const disallowed of [other,expired]) {
     assert.equal(await sessionFor(config,request('/admin/',{headers:{Cookie:sessionCookie(disallowed)}})),null);
   }
@@ -168,7 +168,7 @@ test('session expiry, environment, rotation, logout and CSRF', async t=>{
   assert.notEqual(csrf,next.csrf);
   assert.equal((await post(replacement,'logout',preview,next.csrf)).status,303);
   assert.equal((await run(env,'/api/admin/session/',{headers:{Cookie:sessionCookie(replacement)}})).status,401);
-  const current=await seedSession(sqlite), peer=await seedSession(sqlite);
+  const current=await seedSession(sqlite,config), peer=await seedSession(sqlite,config);
   const identity=await (await run(env,'/api/admin/session/',{headers:{Cookie:sessionCookie(current)}})).json();
   const revoke=await run(env,'/api/admin/session/',{method:'POST',headers:{Cookie:sessionCookie(current),Origin:preview,'Content-Type':'application/json'},
     body:JSON.stringify({action:'revoke',confirm:'yes',csrf:identity.csrf})});
@@ -177,7 +177,9 @@ test('session expiry, environment, rotation, logout and CSRF', async t=>{
 });
 const candidate=(id='fixture-registry',github_url='https://github.com/example/registry')=>({id,github_url,
   name:'Registry fixture',description:'Synthetic content for tests',category:'Other',author:'Fixture',tags:['fixture'],
-  details:{summary:'First version',transport:'stdio',installations:[],tools:[],endpoints:[],prerequisites:[],security:[]}});
+  details:{summary:'First version',documentationUrl:github_url+'#readme',transport:'stdio',
+    installations:[{title:'Local',config:{mcpServers:{fixture:{command:'fixture-mcp'}}}}],
+    tools:[{name:'lookup',description:'Searches fixture items'}],endpoints:[],prerequisites:['A compatible runtime'],security:['Use synthetic data']}});
 const reason='Fixture review completed';
 test('registry lifecycle, drafts, preserve metadata, immutable IDs and version conflicts', async t=>{
   const {config,sqlite}=fixture(t);
@@ -216,7 +218,7 @@ test('duplicate import checks implementation identity and failed audit rolls bac
   assert.ok(results[0].error);
   assert.ok(results[1].row);
   assert.ok(results[2].error);
-  await assert.rejects(()=>editServer(config,'12345',null,{...same,action:'create',reason}),{status:409});
+  await assert.rejects(()=>editServer(config,'12345',null,{...same,action:'create',reason}),{status:400});
   sqlite.exec("CREATE TRIGGER block_audit BEFORE INSERT ON admin_audit_log WHEN NEW.reason='Fixture audit unavailable' BEGIN SELECT RAISE(ABORT,'fixture audit'); END");
   await assert.rejects(()=>editServer(config,'12345',null,{...component,action:'create',reason:'Fixture audit unavailable'}));
   assert.equal(await serverRow(config.db,component.id),null);
@@ -260,7 +262,7 @@ test('GitHub reviews verify issue and source revisions before atomic publication
   assert.equal(first.comments.next,true);
   assert.equal(first.comments.items[0].body,'<em>comment</em>');
   const before=await version(null);
-  await reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',confirm:'yes',version:before,fingerprint:first.fingerprint,reason});
+  await reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',publicationExceptions:{tools:'Fixture has no tools',prerequisites:'Fixture has no prerequisites',security:'Fixture uses synthetic data'},confirm:'yes',version:before,fingerprint:first.fingerprint,reason});
   const review=await reviewRow(config.db,42);
   assert.equal(review.status,'approved');
   assert.equal(await serverRow(config.db,'example-submitted'),null);
@@ -280,6 +282,28 @@ test('GitHub reviews verify issue and source revisions before atomic publication
   assert.equal(queued.status,'pending');
   assert.equal(queued.issue_number,42);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS count FROM admin_audit_log WHERE action='publish-submission'").get().count,1);
+  const server=await serverRow(config.db,result.serverId);
+  await editServer(config,'12345',server.id,{action:'unpublish',confirm:'yes',reason,version:await version(server)});
+  assert.equal(await registry(config.db).detail(server.id),null);
+  const hidden=await reviewRow(config.db,42);
+  assert.equal(hidden.status,'clarification');
+  assert.equal(hidden.server_id,server.id);
+  const draft=await serverRow(config.db,server.id);
+  await assert.rejects(()=>editServer(config,'12345',draft.id,{action:'publish',confirm:'yes',reason,version:'stale'}),{status:409});
+  await assert.rejects(async()=>editServer(config,'12345',draft.id,{action:'publish',confirm:'yes',reason,version:await version(draft)}),/through its submission review/);
+  await editServer(config,'12345',draft.id,{action:'save',name:'Corrected listing',reason,version:await version(draft)});
+  issue.state='closed';
+  const latest=await submission(42);
+  await assert.rejects(async()=>reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:await version(hidden),fingerprint:latest.fingerprint,reason}),/explicit approval/);
+  await reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',confirm:'yes',reason,
+    version:await version(hidden),fingerprint:latest.fingerprint,
+    publicationExceptions:{tools:'Fixture has no tools',prerequisites:'Fixture has no prerequisites',security:'Fixture uses synthetic data'}});
+  const approvedAgain=await reviewRow(config.db,42);
+  const republished=await reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:await version(approvedAgain),fingerprint:latest.fingerprint,reason});
+  assert.equal(republished.serverId,server.id);
+  assert.equal((await registry(config.db).detail(server.id)).name,'Corrected listing');
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM servers WHERE id=?').get(server.id).n,1);
+
 });
 
 test('outbox is disabled in preview and supports a retry after failure without repeating success', async t=>{
@@ -390,4 +414,154 @@ test('OAuth callback reports safe stage errors and consumes failed states', asyn
   const unreadable=await callback(env,stored.state);
   assert.equal(unreadable.status,503);
   assert.match(await unreadable.text(),/saved sign-in request could not be read/);
+});
+
+test('publication requires matching installation and documented evidence, with scoped exceptions', async t=>{
+  const {config}=fixture(t);
+  const data=candidate();
+  data.details.tools=[];
+  data.details.prerequisites=[];
+  const draft=await editServer(config,'12345',null,{...data,action:'create',reason});
+  const publish={action:'publish',reason,confirm:'yes',version:await version(draft)};
+  await assert.rejects(()=>editServer(config,'12345',draft.id,publish),/document tools.*document prerequisites/);
+  await assert.rejects(()=>editServer(config,'12345',draft.id,{...publish,publicationExceptions:{transport:'Skip checks'}}),/Exceptions may cover only/);
+  const exceptions={tools:'The server only exposes resources.',prerequisites:'No dependencies beyond the MCP client.'};
+  const visible=await editServer(config,'12345',draft.id,{...publish,publicationExceptions:exceptions});
+  assert.deepEqual(JSON.parse(visible.details_json).review.exceptions,exceptions);
+  const current=await version(visible);
+  await assert.rejects(()=>editServer(config,'12345',draft.id,{action:'save',reason,confirm:'yes',version:current,
+    details:{transport:'http'}}),/installation configuration/);
+});
+
+test('normalized endpoints match across direct and nested configurations and require a reviewed exception', async t=>{
+  const {config,sqlite}=fixture(t);
+  const original=candidate('original-remote','https://github.com/example/remote');
+  original.details={...original.details,transport:'http',installations:[{
+    title:'Remote',config:{servers:{demo:{type:'http',url:'https://example.org/Mcp/'}}}
+  }]};
+  const saved=await editServer(config,'12345',null,{...original,action:'create',reason});
+  sqlite.prepare("UPDATE servers SET details_json=json_set(details_json,'$.installations[0].config.servers.demo.url',?) WHERE id=?")
+    .run('HTTPS://EXAMPLE.org:443/Mcp/#docs',saved.id);
+  const proposed=candidate('second-remote','https://github.com/example/another');
+  proposed.details={...proposed.details,transport:'http',endpoints:[{transport:'http',url:'https://example.org/Mcp'}],
+    installations:[{title:'Remote',config:{endpoint:'https://example.org/Mcp',transport:'http'}}]};
+  assert.match((await prepareImport(config.db,proposed))[0].error,/original-remote/);
+  await assert.rejects(()=>editServer(config,'12345',null,{...proposed,action:'create',reason}),/original-remote/);
+  const draft=await editServer(config,'12345',null,{...proposed,action:'create',reason,
+    confirmSharedEndpoints:'yes',sharedEndpoints:{'original-remote':'Both clients intentionally use the upstream gateway.'}});
+  await assert.rejects(async()=>editServer(config,'12345',draft.id,{action:'save',version:await version(draft),reason,
+    sharedEndpoints:{}}),/original-remote/);
+  assert.ok(await editServer(config,'12345',draft.id,{action:'publish',version:await version(draft),reason,confirm:'yes'}));
+});
+
+test('a zero-row audit rolls back registry and all placements in a promotion batch', async t=>{
+  const {config,sqlite}=fixture(t);
+  sqlite.exec(`CREATE TRIGGER omit_audit BEFORE INSERT ON admin_audit_log
+    WHEN NEW.entity='server' OR NEW.entity_id LIKE '%detail-bottom' BEGIN SELECT RAISE(IGNORE); END;`);
+  await assert.rejects(()=>editServer(config,'12345',null,{...candidate(),action:'create',reason}),{status:409});
+  assert.equal(await serverRow(config.db,candidate().id),null);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM servers_search').get().n,0);
+  const inputs={action:'create',id:'fixture-audit-batch',headline:'Fixture',eyebrow:'Promoted',description:'Example',
+    cta_text:'Learn more',target_url:'https://example.com/',theme:'violet',weight:1,rotation_seconds:7,status:'draft',
+    placements:['home/primary','detail/bottom'],reason};
+  await assert.rejects(()=>editPromotion(config,'12345',null,inputs),{status:409});
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM promotions WHERE id LIKE 'fixture-audit-batch%'").get().n,0);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM admin_audit_log').get().n,0);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM admin_revisions').get().n,0);
+});
+
+test('selectable import preserves unknown details, flags control metadata and handles concurrent conflicts', async t=>{
+  const {config,sqlite}=fixture(t);
+  const {createImportedDrafts}=await import('../lib/admin/servers.js');
+  const items=await prepareImport(config.db,[
+    {...candidate('bulk-first','https://github.com/example/bulk-first'),unknownTopLevel:true,
+      details:{descriptionNotes:'Extra documented context',review:{status:'published'}}},
+    candidate('bulk-second','https://github.com/example/bulk-second'),
+    candidate('bulk-third','https://github.com/example/bulk-third'),
+  ]);
+  assert.deepEqual(items[0].unsupported,['unknownTopLevel','details.review']);
+  assert.deepEqual(JSON.parse(items[0].row.details_json),{review:{status:'pending-publication'},descriptionNotes:'Extra documented context'});
+  await assert.rejects(()=>createImportedDrafts(config,'12345',items,[0],{reason}),{status:400});
+  const results=await Promise.all([
+    createImportedDrafts(config,'12345',items,[0,1],{reason,confirm:'yes'}),
+    createImportedDrafts(config,'12345',items,[0],{reason,confirm:'yes'}),
+  ]);
+  assert.equal(results.flat().filter(outcome=>outcome.created).length,2);
+  assert.equal(results.flat().filter(outcome=>outcome.error).length,1);
+  assert.equal(await registry(config.db).detail('bulk-first'),null);
+  assert.equal(await serverRow(config.db,'bulk-third'),null);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM admin_audit_log WHERE action='create-import'").get().n,2);
+});
+
+test('promotion and sponsorship restores use encrypted snapshots and new audit events', async t=>{
+  const {config,sqlite}=fixture(t);
+  const {getPromotion}=await import('../lib/admin/promotions.js');
+  const {editSponsor,sponsorRow}=await import('../lib/admin/sponsors.js');
+  const input={action:'create',id:'fixture-recovery',headline:'Initial promotion',eyebrow:'Promoted',description:'Example',
+    cta_text:'Learn more',target_url:'https://example.com/private-destination',theme:'violet',weight:1,rotation_seconds:7,
+    status:'draft',placements:['home/primary'],reason};
+  await editPromotion(config,'12345',null,input);
+  const old=await getPromotion(config.db,input.id);
+  await editPromotion(config,'12345',input.id,{...input,action:'save',headline:'Updated promotion',version:await version(old)});
+  const saved=sqlite.prepare("SELECT * FROM admin_audit_log WHERE entity='promotion' AND action='save'").get();
+  assert.match(saved.after_json,/Updated promotion/);
+  assert.doesNotMatch(saved.before_json,/private-destination/);
+  await assert.rejects(()=>editPromotion(config,'12345',input.id,{action:'restore',confirm:'yes',reason,revision:saved.id,version:'stale'}),{status:409});
+  await editPromotion(config,'12345',input.id,{action:'restore',confirm:'yes',reason,revision:saved.id,version:await version(await getPromotion(config.db,input.id))});
+  assert.equal((await getPromotion(config.db,input.id)).headline,old.headline);
+
+  const sponsor={name:'Fixture tier',description:'Private tier draft',cta_text:'Contact',target_url:'https://example.com/',status:'draft',reason};
+  await editSponsor(config,'12345','gold',{...sponsor,version:await version(null)});
+  const prior=await sponsorRow(config.db,'gold');
+  await editSponsor(config,'12345','gold',{...sponsor,name:'Revised tier',version:await version(prior)});
+  const event=sqlite.prepare("SELECT id FROM admin_audit_log WHERE entity='sponsor' AND action='save' ORDER BY rowid DESC").get();
+  await editSponsor(config,'12345','gold',{action:'restore',confirm:'yes',reason,revision:event.id,version:await version(await sponsorRow(config.db,'gold'))});
+  assert.equal((await sponsorRow(config.db,'gold')).name,prior.name);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM admin_audit_log WHERE action='restore'").get().n,2);
+});
+
+test('rotating the environment session secret rejects existing sessions',async t=>{
+  const {config,sqlite}=fixture(t);
+  const raw=await seedSession(sqlite,config);
+  const req=request('/admin/',{headers:{Cookie:sessionCookie(raw)}});
+  assert.ok(await sessionFor(config,req));
+  assert.equal(await sessionFor({...config,secret:token()},req),null);
+});
+
+test('superseded outbox decisions do not call GitHub and remain distinct from delivery', async t=>{
+  const {config,sqlite}=fixture(t);
+  const id=token();
+  sqlite.prepare('INSERT INTO submission_reviews VALUES(?,?,?,?,?,?,?,?)')
+    .run(42,'published','hash','commit','{}','12345','date','fixture');
+  sqlite.prepare('INSERT INTO admin_outbox(id,issue_number,action,message,decision_version) VALUES(?,?,?,?,?)')
+    .run(id,42,'published','Fixture','earlier-decision');
+  const env={ADMIN_GITHUB_SYNC:'enabled',ADMIN_GITHUB_APP_ID:'11',ADMIN_GITHUB_INSTALLATION_ID:'22',ADMIN_GITHUB_APP_PRIVATE_KEY:'fixture'};
+  let called=false;
+  const result=await retryIssue({...config,mode:'production'},env,'12345',id,reason,async()=>{called=true;});
+  assert.equal(called,false);
+  assert.equal(result.status,'superseded');
+  assert.equal(sqlite.prepare('SELECT resolution FROM admin_outbox WHERE id=?').get(id).resolution,'superseded');
+});
+
+test('GitHub review token is scoped to project issues, public evidence is cached and rate limits back off', async t=>{
+  const {github,project,projectRead}=await import('../lib/admin/github.js');
+  let requests=0;
+  t.mock.method(globalThis,'fetch',async (path,opts)=>{
+    requests++;
+    if (path.endsWith('/issues/9')) {
+      assert.equal(opts.headers.Authorization,'Bearer fixture-read-token');
+      return Response.json({number:9});
+    }
+    assert.equal(opts.headers.Authorization,undefined);
+    if (path.endsWith('/limited')) return Response.json({message:'Private provider detail'},{status:429,headers:{'Retry-After':'1'}});
+    return Response.json({id:9});
+  });
+  await projectRead(project+'/issues/9','fixture-read-token');
+  assert.throws(()=>projectRead('/repos/example/a/issues/1','fixture-read-token'),/Invalid GitHub issue path/);
+  await github('/repos/example/cache-fixture',{cache:true});
+  await github('/repos/example/cache-fixture',{cache:true});
+  assert.equal(requests,2);
+  await assert.rejects(()=>github('/repos/example/limited'),/Retry in about 1 minute/);
+  await assert.rejects(()=>github('/repos/example/backoff'),/Retry in about 1 minute/);
+  assert.equal(requests,3);
 });

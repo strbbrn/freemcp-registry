@@ -34,6 +34,9 @@ test('real D1 rolls back changes when the audit insert fails', async ({request})
   const response=await request.post('/api/admin/servers/',{headers,data:draft});
   expect(response.status()).toBe(503);
   expect((await request.get('/api/admin/servers/admin-audit-rollback/',{headers})).status()).toBe(404);
+  const omitted={...draft,id:'admin-audit-omitted',github_url:'https://github.com/example/admin-audit-omitted',reason:'Fixture audit omitted'};
+  expect((await request.post('/api/admin/servers/',{headers,data:omitted})).status()).toBe(409);
+  expect((await request.get('/api/admin/servers/admin-audit-omitted/',{headers})).status()).toBe(404);
   const noCsrf=await request.post('/api/admin/servers/',{headers,data:{...draft,csrf:'invalid'}});
   expect(noCsrf.status()).toBe(403);
   const badOrigin=await request.post('/api/admin/servers/',{headers:{...headers,Origin:'https://example.com'},data:draft});
@@ -64,6 +67,14 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
     await page.getByLabel('Maintainer',{exact:true}).fill('Fixture');
     await page.getByLabel('Repository URL').fill('https://github.com/example/'+id);
     await page.getByLabel('Description',{exact:true}).fill('A synthetic fixture.');
+    await page.getByRole('combobox',{name:'Transport',exact:true}).selectOption('stdio');
+    await page.getByLabel('Documentation URL').fill('https://github.com/example/'+id+'#readme');
+    await page.getByRole('button',{name:'Add installation',exact:true}).click();
+    const installation=page.getByRole('group',{name:'Installations 1'});
+    await installation.getByLabel('Title',{exact:true}).fill('Fixture installation');
+    await installation.getByLabel('Client configuration (JSON)').fill('{"mcpServers":{"fixture":{"command":"fixture-command"}}}');
+    await page.getByLabel('Prerequisites, one per line').fill('Compatible fixture runtime');
+    await page.getByLabel('Security considerations, one per line').fill('Only use synthetic fixture data.');
     await page.getByRole('button',{name:'Add tool',exact:true}).click();
     const entry=page.getByRole('group',{name:'Tools 1'});
     await entry.getByLabel('Tool name',{exact:true}).fill('fixture_tool');
@@ -78,14 +89,21 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
     }
     expect((await request.get('/servers/'+id)).status()).toBe(404);
     await page.getByLabel('Name',{exact:true}).fill(title+' proposed');
+    const popupEvent=page.waitForEvent('popup');
+    await page.getByRole('button',{name:'Preview unsaved listing'}).click();
+    const popup=await popupEvent;
+    await expect(popup.getByRole('heading',{name:title+' proposed',exact:true})).toBeVisible();
+    await expect(popup.getByText('fixture_tool',{exact:true})).toBeVisible();
+    await expect(popup.locator('link[rel=canonical]')).toHaveCount(0);
+    await popup.close();
     await page.getByRole('button',{name:'Review proposed edits'}).click();
     await expect(page.getByRole('heading',{name:'Review proposed edits'})).toBeVisible();
     await expect(page.getByText(title+' proposed',{exact:false})).toBeVisible();
     await page.getByRole('link',{name:'Back to editor'}).click();
     await expect(page.getByLabel('Name',{exact:true})).toHaveValue(title);
     await page.getByRole('link',{name:'Preview',exact:true}).click();
-    await expect(page.getByText('fixture_tool · Returns a synthetic result.')).toBeVisible();
-    await page.getByRole('link',{name:'Back to editor'}).click();
+    await expect(page.getByText('fixture_tool',{exact:true})).toBeVisible();
+    await page.getByRole('link',{name:'Back to the listing editor'}).click();
     const publish=page.locator('form').filter({has:page.getByRole('button',{name:'Publish listing',exact:true})});
     await publish.getByLabel('Reason').fill('Publish test candidate');
     await publish.getByLabel('Confirm this publication change.').check();
@@ -131,4 +149,27 @@ test('sponsorship edits preserve the public three-tier layout', async ({page,con
   expect(text).toContain('Gold fixture');
   expect(text).toMatch(/sponsor-tier (gold|diamond|platinum)/);
   expect((text.match(/class="sponsor-tier (?:gold|diamond|platinum)"/g)||[]).length).toBe(3);
+});
+
+test('mobile bulk import validates, selects and confirms private drafts', async ({page,context,request})=>{
+  test.skip(!local,'Requires isolated test D1 and a seeded fixture session');
+  await page.setViewportSize({width:390,height:844});
+  await authenticated(context);
+  await page.goto('/admin/import/');
+  const entry=id=>({id,name:id,description:'Isolated bulk browser fixture',category:'Other',author:'Fixture',
+    github_url:'https://github.com/example/'+id});
+  await page.getByLabel('Candidate JSON').fill(JSON.stringify([entry('mobile-bulk-a'),entry('mobile-bulk-b'),entry('mobile-bulk-c'),{id:'invalid'}]));
+  await page.getByRole('button',{name:'Validate candidates'}).click();
+  await expect(page.getByText('3 of 4 candidates can be selected.')).toBeVisible();
+  await page.getByLabel('mobile-bulk-a · mobile-bulk-a').check();
+  await page.getByLabel('mobile-bulk-c · mobile-bulk-c').check();
+  await page.getByLabel('Reason',{exact:true}).fill('Mobile bulk fixture');
+  await page.getByLabel('Create the selected listings as private drafts.').check();
+  await page.getByRole('button',{name:'Create selected drafts'}).click();
+  await expect(page.getByRole('heading',{name:'Import results',exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'mobile-bulk-a',exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'mobile-bulk-c',exact:true})).toBeVisible();
+  expect((await request.get('/api/admin/servers/mobile-bulk-b/',{headers:{Cookie:session}})).status()).toBe(404);
+  expect((await request.get('/servers/mobile-bulk-a/')).status()).toBe(404);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
