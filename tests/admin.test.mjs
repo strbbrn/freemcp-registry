@@ -746,6 +746,13 @@ for (const quotaStatus of [403,429]) test('saved draft operations make zero GitH
   const failed=await post('validate-candidate',invalidInput);
   assert.equal(failed.status,400);
   assert.deepEqual((await failed.json()).issues.map(issue=>issue.field),['documentationUrl','transport','installations','tools','prerequisites','security']);
+  await post('save-candidate',invalidInput).then(response=>assert.equal(response.status,200));
+  const incomplete=await reviewRow(config.db,177);
+  const reject=await post('approved',{...correct,version:await version(incomplete)});
+  assert.equal(reject.status,400);
+  assert.match((await reject.json()).error,/Publication readiness/);
+  assert.equal(requests,1);
+  await post('save-candidate',{...correct,version:await version(incomplete)}).then(response=>assert.equal(response.status,200));
   sqlite.prepare("UPDATE submission_reviews SET status='approved' WHERE number=177").run();
   const approved=await reviewRow(config.db,177);
   assert.equal((await post('publish',{...correct,version:await version(approved)})).status,503);
@@ -754,4 +761,28 @@ for (const quotaStatus of [403,429]) test('saved draft operations make zero GitH
   assert.equal((await githubEvidenceMetrics(config)).requests,1);
   const uncached=await checkEditableCandidate(config,177,{...correct,version:await version(approved),action:'preview-candidate'});
   assert.equal(uncached.id,draft.id);
+});
+
+test('expired cooldown allows one probe across different evidence keys', async t=>{
+  const {config,sqlite}=fixture(t);
+  const {githubEvidence}=await import('../lib/admin/github-evidence.js');
+  sqlite.prepare('INSERT INTO admin_github_rate(scope,blocked_until) VALUES(?,?)').run(config.mode,now()-1);
+  let count=0;
+  let observed,respond;
+  const started=new Promise(resolve=>{observed=resolve;});
+  const gate=new Promise(resolve=>{respond=resolve;});
+  t.mock.method(globalThis,'fetch',async()=>{
+    count++;
+    observed();
+    await gate;
+    return Response.json({id:1});
+  });
+  const first=githubEvidence(config,'fixture-token','/repos/example/first');
+  await started;
+  try {
+    await assert.rejects(()=>githubEvidence(config,'fixture-token','/repos/example/second'),/rate limit/);
+    assert.equal(count,1);
+  } finally { respond(); }
+  assert.deepEqual((await first).data,{id:1});
+  assert.equal(sqlite.prepare('SELECT blocked_until FROM admin_github_rate WHERE scope=?').get(config.mode).blocked_until,0);
 });
