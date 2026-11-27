@@ -93,8 +93,9 @@ test('OAuth validates PKCE, authorized numeric ID, state expiry and single use',
   let id=12345, verifier;
   t.mock.method(globalThis,'fetch',async (path,options)=>{
     if (path==='https://github.com/login/oauth/access_token') {
-      verifier=options.body.get('code_verifier');
-      assert.equal(options.body.get('redirect_uri'),preview+'/admin/oauth/callback/');
+      const body=new URLSearchParams(options.body);
+      verifier=body.get('code_verifier');
+      assert.equal(body.get('redirect_uri'),preview+'/admin/oauth/callback/');
       return Response.json({access_token:'fixture-github-token'});
     }
     assert.equal(path,'https://api.github.com/user');
@@ -334,4 +335,21 @@ test('GitHub retry recognizes a bot-authored delivery marker before posting anot
   assert.ok(!calls.some(([method,path])=>method==='POST'&&path.endsWith('/comments')));
   assert.ok(calls.some(([method,path])=>method==='POST'&&path.endsWith('/labels')));
   assert.ok(calls.some(([method,path])=>method==='PATCH'&&path.endsWith('/issues/42')));
+});
+
+test('OAuth callback reports safe stage errors and consumes failed states', async t=>{
+  const {env,sqlite}=fixture(t);
+  t.mock.method(globalThis,'fetch',async ()=>{ throw new Error('fixture private provider detail'); });
+  const provider=await loginStart(env);
+  const failed=await callback(env,provider.state);
+  assert.equal(failed.status,502);
+  const message=await failed.text();
+  assert.match(message,/GitHub could not exchange the sign-in code/);
+  assert.doesNotMatch(message,/fixture private provider detail/);
+  assert.equal((await callback(env,provider.state)).status,403);
+  const stored=await loginStart(env);
+  sqlite.prepare('UPDATE admin_oauth_states SET verifier=? WHERE state_hash=?').run('invalid-test-verifier',await digest(stored.state));
+  const unreadable=await callback(env,stored.state);
+  assert.equal(unreadable.status,503);
+  assert.match(await unreadable.text(),/saved sign-in request could not be read/);
 });
