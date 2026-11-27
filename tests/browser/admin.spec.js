@@ -383,9 +383,11 @@ test('mobile registry editor synchronizes JSON, previews unsaved changes and sav
   await page.getByLabel('Apply these edits to the public listing.').check();
   const [response]=await Promise.all([
     page.waitForResponse(res=>res.url().endsWith('/api/admin/servers/'+id+'/')&&res.request().method()==='POST'),
+    page.waitForEvent('framenavigated',{predicate:frame=>frame===page.mainFrame()}),
     page.getByRole('button',{name:'Save changes',exact:true}).click(),
   ]);
-  expect(response.ok(),await response.text()).toBeTruthy();
+  expect(response.status()).toBe(200);
+  await page.waitForLoadState('domcontentloaded');
   const after=await request.get('/servers/'+id);
   expect(await after.text()).toContain('Explore tools (15)');
   expect(await after.text()).toContain('Synced structured description');
