@@ -47,7 +47,8 @@ const editors = {
   endpoints: [['transport','Transport'],['url','HTTPS endpoint']],
   installations: [['title','Title'],['client','Client'],['os','Operating system'],['notes','Notes']],
 };
-for (const input of document.querySelectorAll('textarea[data-structured]')) {
+function setupStructuredEditors(root) {
+for (const input of root.querySelectorAll('textarea[data-structured]')) {
   const fields = editors[input.name];
   let entries;
   try { entries = JSON.parse(input.value); } catch { continue; }
@@ -135,7 +136,7 @@ for (const input of document.querySelectorAll('textarea[data-structured]')) {
   draw();
 }
 
-for (const input of document.querySelectorAll('textarea[data-structured][name="sharedEndpoints"]')) {
+for (const input of root.querySelectorAll('textarea[data-structured][name="sharedEndpoints"]')) {
   const panel=document.createElement('div');
   panel.className='record-editor';
   let entries;
@@ -173,13 +174,86 @@ for (const input of document.querySelectorAll('textarea[data-structured][name="s
 for (const link of document.querySelectorAll('[data-confirm-discard]')) {
   link.addEventListener('click',event=>{if (!window.confirm('Discard the proposed listing changes?')) event.preventDefault();});
 }
+}
+setupStructuredEditors(document);
+
+const listingEditors=new Map();
+for (const form of document.querySelectorAll('form:has([data-listing-fields])')) {
+  const structured=form.querySelector('[data-listing-fields]');
+  const json=form.elements.namedItem('candidateJson');
+  const advanced=form.elements.namedItem('useAdvanced');
+  const state=form.querySelector('[data-editor-state]');
+  const snapshot=()=>JSON.stringify([...structured.querySelectorAll('[name]')]
+    .filter(control=>control.name!=='confirmSharedEndpoints')
+    .map(control=>[control.name,control.type==='checkbox'?control.checked:control.value]));
+  let initialFields=snapshot(), initialJson=json.value, baseJson;
+  const dirty=()=>({fields:snapshot()!==initialFields,json:json.value!==initialJson});
+  const describe=()=>{
+    const changed=dirty();
+    state.textContent=(advanced.checked?'JSON is selected.':'Structured fields are selected.')+
+      (changed.json?' JSON has unsynchronized edits.':'')+(changed.fields?' Structured fields have unsynchronized edits.':'')+
+      (baseJson?' Synchronized changes are still unsaved.':'');
+  };
+  form.addEventListener('input',describe);
+  form.addEventListener('change',describe);
+  form.addEventListener('formdata',({formData})=>{
+    if (!advanced.checked && !dirty().json && !formData.getAll('action').includes('sync-json')) formData.delete('candidateJson');
+    if (baseJson) formData.set('baseJson',baseJson);
+  });
+  form.querySelector('[data-copy-listing]').addEventListener('click',async ()=>{
+    try { await navigator.clipboard.writeText(json.value); state.textContent='JSON copied.'; }
+    catch { json.focus(); json.select(); state.textContent='JSON selected. Use your device’s copy action.'; }
+  });
+  form.addEventListener('submit',event=>{
+    const action=event.submitter?.value||form.elements.namedItem('action').value;
+    const changed=dirty();
+    const sync=event.submitter?.hasAttribute('data-sync-editor');
+    const usingJson=sync?action==='sync-json':advanced.checked;
+    const incompatible=usingJson?changed.fields:changed.json;
+    if (incompatible && (!sync || !window.confirm(usingJson?
+      'Replace the unsynchronized structured edits with this JSON?':'Replace the unsynchronized JSON edits with the structured values?'))) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const feedback=form.querySelector('.form-feedback');
+      feedback.dataset.error='true';
+      feedback.textContent='Both editors can contain unsaved work. Synchronize from the version you want to keep.';
+      return;
+    }
+    if (!usingJson && [...structured.querySelectorAll('input,textarea')].some(control=>control.validity.customError)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const feedback=form.querySelector('.form-feedback');
+      feedback.dataset.error='true';
+      feedback.textContent='Correct the invalid client configuration JSON in the structured editor.';
+    }
+  },true);
+  listingEditors.set(form,({document:listing,structured:markup},action)=>{
+    const confirmed=form.elements.namedItem('confirmSharedEndpoints')?.checked;
+    structured.innerHTML=markup;
+    setupStructuredEditors(structured);
+    if (confirmed) form.elements.namedItem('confirmSharedEndpoints').checked=true;
+    json.value=JSON.stringify(listing,null,2);
+    baseJson=json.value;
+    initialJson=json.value;
+    initialFields=snapshot();
+    advanced.checked=action==='sync-json';
+    showChanges(json);
+  });
+}
+
 const editorsWithChanges=new Set();
 const tracked=new Set(document.querySelectorAll('form:has(.unsaved)'));
 for (const form of tracked) {
   const notice=form.querySelector('.unsaved');
-  form.addEventListener('input',()=>{
+  form.addEventListener('input',event=>{
+    if (['reason','confirm','confirmSharedEndpoints'].includes(event.target.name)) return;
     editorsWithChanges.add(form);
     notice.hidden=false;
+    const feedback=form.querySelector('.form-feedback');
+    if (feedback.dataset.validated) {
+      delete feedback.dataset.validated;
+      feedback.textContent='Edits changed since validation.';
+    }
   });
   if (!form.hasAttribute('data-admin-mutation')) form.addEventListener('submit',event=>{
     if (!event.submitter?.hasAttribute('data-editor-preview')) editorsWithChanges.delete(form);
@@ -207,16 +281,18 @@ for (const form of document.querySelectorAll('form[data-admin-mutation]')) {
     event.preventDefault();
     const feedback = form.querySelector('.form-feedback');
     const submit = event.submitter;
-    const fields=new FormData(form);
+    const fields=new FormData(form,submit);
     if (submit?.name==='action') fields.set('action',submit.value);
-    const validating=fields.get('action')==='validate-candidate';
+    const action=fields.get('action');
+    const validating=['validate-candidate','validate-listing'].includes(action);
+    const syncing=submit?.hasAttribute('data-sync-editor');
     if (submit) submit.disabled = true;
     for (const field of form.querySelectorAll('[data-validation-error]')) {
       field.removeAttribute('aria-invalid');
       field.removeAttribute('data-validation-error');
     }
     feedback.removeAttribute('data-error');
-    feedback.textContent = validating?'Validating…':'Saving…';
+    feedback.textContent = validating?'Validating…':syncing?'Synchronizing…':'Saving…';
     try {
       const response = await fetch(form.getAttribute('action'),{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},
         body:new URLSearchParams(fields)});
@@ -251,8 +327,14 @@ for (const form of document.querySelectorAll('form[data-admin-mutation]')) {
         return;
       }
       if (!response.ok) throw new Error(result.error || 'The request failed.');
+      if (syncing) {
+        listingEditors.get(form)(result,action);
+        feedback.textContent='Editors synchronized. Save to keep these changes.';
+        return;
+      }
       if (validating) {
-        feedback.textContent='Validation and duplicate checks passed. Save the candidate before approval.';
+        feedback.dataset.validated='true';
+        feedback.textContent='Validation and duplicate checks passed for the current edits.';
         return;
       }
       editorsWithChanges.delete(form);
