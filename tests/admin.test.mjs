@@ -348,7 +348,7 @@ test('a scheduled promotion and paused promotion stay out of the public ad API',
   const {onRequestGet}=await import('../functions/api/ads.js');
   const offer=(id,status,starts_at)=>({action:'create',id,headline:id,eyebrow:'Fixture',description:'Test',
     cta_text:'Learn more',target_url:'https://example.com/',theme:'violet',weight:1,rotation_seconds:7,status,
-    starts_at,placements:['home/primary'],reason});
+    starts_at,placements:['home/primary'],reason,confirm:'yes'});
   await editPromotion(config,'12345',null,offer('fixture-active-ad','active',null));
   await editPromotion(config,'12345',null,offer('fixture-future-ad','active',new Date(Date.now()+86400000).toISOString()));
   await editPromotion(config,'12345',null,offer('fixture-paused-ad','paused',null));
@@ -552,6 +552,91 @@ test('superseded outbox decisions do not call GitHub and remain distinct from de
   assert.equal(sqlite.prepare('SELECT resolution FROM admin_outbox WHERE id=?').get(id).resolution,'superseded');
 });
 
+test('transport resolution uses Agenterm and legacy install shapes and preserves raw values on unrelated edits',async ()=>{
+  const {resolveTransport}=await import('../lib/admin/transport.js');
+  const {serverCandidate}=await import('../lib/admin/servers.js');
+  const remote={title:'Hosted Streamable HTTP endpoint',config:{mcpServers:{agenterm:{type:'http',url:'https://agenterm.example/mcp'}}}};
+  const local={title:'Local command',config:{servers:{agenterm:{command:'fixture'}}}};
+  assert.deepEqual(resolveTransport({installations:[remote]}).modes,['http']);
+  assert.deepEqual(resolveTransport({installations:[remote,local]}).modes,['http','stdio']);
+  assert.deepEqual(resolveTransport({transport:'Local stdio / Legacy SSE'}).modes,['stdio','sse']);
+  assert.deepEqual(resolveTransport({description:'Streamable HTTP available'}).modes,[]);
+  assert.deepEqual(resolveTransport({transport:'websocket',installations:[remote]}).unsupported,['websocket']);
+  const original=serverCandidate(candidate('fixture-agenterm','https://github.com/Heming9/agenterm'));
+  original.details_json=JSON.stringify({transport:'legacy-wire-mode',installations:[remote],external:{keep:true}});
+  const updated=serverCandidate({name:'Updated',transport:'',transports:'',installations:JSON.stringify([remote])},original);
+  assert.equal(updated.details_json,original.details_json);
+});
+
+test('Overleaf-style submissions normalize links, aliases, tools and paragraphs and escape active Markdown',async ()=>{
+  const {normalizedSubmission,evidenceMarkdown}=await import('../lib/admin/submission-candidate.js');
+  const original={Repository:'https://github.com/yangzichao/mcp-server-overleaf',Name:'Overleaf MCP',Transport:'Local stdio',
+    Documentation:'[Install](https://github.com/yangzichao/mcp-server-overleaf#install) · [Workflows](https://example.com/docs)',
+    'Documented tools':'`list_projects`, **read_file**, `edit_file`.','Setup prerequisites':'Node.js 22.14 or later, npm, and project access. '.repeat(6),
+    'Installation evidence / instructions':'Run `npx --yes mcp-server-overleaf@0.6.3 --stdio`.'};
+  const before=structuredClone(original);
+  const parsed=normalizedSubmission(original);
+  assert.equal(parsed.details.transport,'stdio');
+  assert.equal(parsed.details.documentationUrls.length,2);
+  assert.deepEqual(parsed.details.tools.map(tool=>tool.name),['list_projects','read_file','edit_file']);
+  assert.deepEqual(parsed.details.installations[0].config.mcpServers['mcp-server-overleaf'].args,['--yes','mcp-server-overleaf@0.6.3','--stdio']);
+  assert.equal(parsed.details.prerequisites.length,1);
+  assert.deepEqual(original,before);
+  const html=evidenceMarkdown('**review** [docs](https://example.org/) [bad](javascript:alert%281%29)\n\n<img src=x onerror=alert(1)>');
+  assert.match(html,/<strong>review<\/strong>/);
+  assert.match(html,/<a href="https:\/\/example.org\//);
+  assert.doesNotMatch(html,/<img|href="javascript/);
+});
+
+test('saving a revised full candidate invalidates its approval and binds publication to the exact saved fields',async t=>{
+  const {config,sqlite}=fixture(t);
+  const {issueContent}=await import('../src/lib/submission.mjs');
+  const body=issueContent({repository:'https://github.com/example/reviewed',name:'Registry fixture',category:'Other',
+    description:'Synthetic submission',transport:'stdio',installation:'fixture-mcp'},[]);
+  t.mock.method(globalThis,'fetch',async (path,opts)=>{
+    assert.equal(opts.method,'GET');
+    const url=new URL(path);
+    if (url.pathname.endsWith('/issues/145')) return Response.json({number:145,title:'[MCP Submission] Fixture',state:'open',body});
+    if (url.pathname.endsWith('/commits/main')) return Response.json({sha:'d'.repeat(40)});
+    return Response.json({id:545,full_name:'example/reviewed',default_branch:'main'});
+  });
+  const evidence=await submission(145);
+  const submit=async data=>reviewAction(config,'12345',145,{reason,version:await version(await reviewRow(config.db,145)),
+    fingerprint:evidence.fingerprint,...data});
+  const draft=candidate('reviewed-custom-id','https://github.com/example/reviewed');
+  draft.details.documentationUrls=['https://example.org/workflows'];
+  await submit({action:'save-candidate',candidate:draft});
+  assert.equal(await serverRow(config.db,draft.id),null);
+  await submit({action:'approved',confirm:'yes'});
+  assert.equal((await reviewRow(config.db,145)).status,'approved');
+  await submit({action:'save-candidate',candidate:{...draft,name:'Corrected candidate'}});
+  assert.equal((await reviewRow(config.db,145)).status,'clarification');
+  await assert.rejects(()=>submit({action:'publish',confirm:'yes'}),/explicit approval/);
+  await submit({action:'approved',confirm:'yes'});
+  assert.equal((await submit({action:'publish',confirm:'yes',candidate:{...draft,name:'Injected name'}})).serverId,draft.id);
+  const publicRow=await registry(config.db).detail(draft.id);
+  assert.equal(publicRow.name,'Corrected candidate');
+  assert.equal(publicRow.details.documentationUrls[0],'https://example.org/workflows');
+  assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_audit_log WHERE action='save-candidate'").get().n,2);
+});
+
+test('multi-placement edits are checked, confirmed and audited together',async t=>{
+  const {config,sqlite}=fixture(t);
+  const {getPromotion}=await import('../lib/admin/promotions.js');
+  const data={action:'create',id:'placement-edit-fixture',headline:'Original',eyebrow:'Fixture',description:'Fixture',
+    cta_text:'Learn more',target_url:'https://example.org/',theme:'violet',weight:1,rotation_seconds:7,status:'draft',
+    placements:['home/primary','detail/bottom'],reason};
+  const [primary,other]=await editPromotion(config,'12345',null,data);
+  const base={...data,action:'save',selection:'home/primary',headline:'Edited',
+    version:await version(await getPromotion(config.db,primary)),['also_'+other]:'yes',['version_'+other]:await version(await getPromotion(config.db,other))};
+  await assert.rejects(()=>editPromotion(config,'12345',primary,{...base,status:'active'}),/Confirm changes/);
+  sqlite.exec("CREATE TRIGGER omit_placement BEFORE INSERT ON admin_audit_log WHEN NEW.action='save' AND NEW.entity_id LIKE '%detail-bottom' BEGIN SELECT RAISE(IGNORE); END;");
+  await assert.rejects(()=>editPromotion(config,'12345',primary,base),{status:409});
+  assert.equal((await getPromotion(config.db,primary)).headline,'Original');
+  sqlite.exec('DROP TRIGGER omit_placement');
+  assert.deepEqual(await editPromotion(config,'12345',primary,base),[primary,other]);
+  assert.equal((await getPromotion(config.db,other)).headline,'Edited');
+});
 test('GitHub review token is scoped to project issues, public evidence is cached and rate limits back off', async t=>{
   const {github,project,projectRead}=await import('../lib/admin/github.js');
   let requests=0;
