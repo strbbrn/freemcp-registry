@@ -178,9 +178,13 @@ test('sponsorship edits preserve the public three-tier layout', async ({page,con
   await gold.getByLabel('Status').selectOption('active');
   await gold.getByLabel('Reason',{exact:true}).fill('Sponsorship browser fixture');
   await gold.getByLabel('Confirm changes to the public homepage').check();
-  const saved=page.waitForResponse(response=>response.url().endsWith('/api/admin/sponsors/gold/') && response.status()===200);
-  await gold.getByRole('button',{name:'Save tier'}).click();
-  await saved;
+  const [saved]=await Promise.all([
+    page.waitForResponse(response=>response.url().endsWith('/api/admin/sponsors/gold/')),
+    page.waitForEvent('framenavigated',{predicate:frame=>frame===page.mainFrame()}),
+    gold.getByRole('button',{name:'Save tier'}).click(),
+  ]);
+  expect(saved.ok()).toBe(true);
+  await page.waitForLoadState('domcontentloaded');
   const publicPage=await request.get('/');
   const text=await publicPage.text();
   expect(text).toContain('Gold fixture');
@@ -229,6 +233,7 @@ for (const width of [320,360,390,430,768,1440]) {
       await page.screenshot({path:process.env.FREEMCP_ADMIN_SCREENSHOTS+'/'+width+'-overview.png',animations:'disabled'});
     }
     await page.getByRole('link',{name:'Add MCP server',exact:true}).click();
+    await page.waitForURL('**/admin/servers/new/',{waitUntil:'domcontentloaded'});
     const installation=page.locator('summary',{hasText:/^Installation$/});
     await expect(installation).toBeVisible();
     await expect(page.getByRole('button',{name:'Add installation',exact:true})).toBeHidden();
