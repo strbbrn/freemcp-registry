@@ -339,14 +339,32 @@ test('GitHub retry recognizes a bot-authored delivery marker before posting anot
 
 test('OAuth callback reports safe stage errors and consumes failed states', async t=>{
   const {env,sqlite}=fixture(t);
-  t.mock.method(globalThis,'fetch',async ()=>{ throw new Error('fixture private provider detail'); });
+  const exchange=t.mock.method(globalThis,'fetch',async ()=>{ throw new Error('fixture private provider detail'); });
   const provider=await loginStart(env);
   const failed=await callback(env,provider.state);
   assert.equal(failed.status,502);
   const message=await failed.text();
-  assert.match(message,/GitHub could not exchange the sign-in code/);
+  assert.match(message,/Could not reach GitHub to exchange the sign-in code/);
   assert.doesNotMatch(message,/fixture private provider detail/);
   assert.equal((await callback(env,provider.state)).status,403);
+  const cases=[
+    [401,'incorrect_client_credentials',503,/OAuth app credentials/],
+    [200,'redirect_uri_mismatch',503,/OAuth callback URL/],
+    [200,'bad_verification_code',400,/rejected this sign-in request/],
+    [404,'unknown',502,/returned HTTP 404/],
+  ];
+  for (const [providerStatus,error,status,expected] of cases) {
+    exchange.mock.mockImplementation(async (_url,options)=>{
+      assert.equal(options.redirect,'manual');
+      return Response.json({error,error_description:'fixture private provider detail'},{status:providerStatus});
+    });
+    const attempt=await loginStart(env);
+    const result=await callback(env,attempt.state);
+    assert.equal(result.status,status);
+    const body=await result.text();
+    assert.match(body,expected);
+    assert.doesNotMatch(body,/fixture private provider detail/);
+  }
   const stored=await loginStart(env);
   sqlite.prepare('UPDATE admin_oauth_states SET verifier=? WHERE state_hash=?').run('invalid-test-verifier',await digest(stored.state));
   const unreadable=await callback(env,stored.state);
