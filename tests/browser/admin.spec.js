@@ -118,16 +118,18 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
     await page.getByRole('link',{name:'Back to the listing editor'}).click();
     await page.locator('summary',{hasText:/^Publication and lifecycle$/}).click();
     const publish=page.locator('form').filter({has:page.getByRole('button',{name:'Publish listing',exact:true})});
-    await publish.getByLabel('Reason').fill('Publish test candidate');
+    await publish.getByLabel('Reason',{exact:true}).fill('Publish test candidate');
     await publish.getByLabel('Confirm this publication change.').check();
     await publish.getByRole('button',{name:'Publish listing'}).click();
+    await expect(page.locator('input[name="action"][value="unpublish"]')).toHaveCount(1);
     await page.locator('summary',{hasText:/^Publication and lifecycle$/}).click();
     const unpublish=page.locator('form').filter({has:page.getByRole('button',{name:'Unpublish listing',exact:true})});
     await expect(unpublish).toBeVisible();
     expect((await request.get('/servers/'+id)).status()).toBe(200);
-    await unpublish.getByLabel('Reason').fill('Unpublish test candidate');
+    await unpublish.getByLabel('Reason',{exact:true}).fill('Unpublish test candidate');
     await unpublish.getByLabel('Confirm this publication change.').check();
     await unpublish.getByRole('button',{name:'Unpublish listing'}).click();
+    await expect(page.locator('input[name="action"][value="publish"]')).toHaveCount(1);
     await page.locator('summary',{hasText:/^Publication and lifecycle$/}).click();
     await expect(page.getByRole('button',{name:'Publish listing',exact:true})).toBeVisible();
     expect((await request.get('/servers/'+id)).status()).toBe(404);
@@ -139,7 +141,7 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
     await page.getByLabel('HTTPS destination').fill('https://example.com/');
     await page.getByLabel('home · primary').check();
     await page.getByLabel('detail · bottom').check();
-    await page.getByLabel('Reason').fill('Promotion layout test');
+    await page.getByLabel('Reason',{exact:true}).fill('Promotion layout test');
     await page.getByRole('button',{name:'Create promotion'}).click();
     await expect(page.getByRole('link',{name:'Fixture promotion '+device,exact:true})).toHaveCount(2);
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
@@ -156,7 +158,7 @@ test('sponsorship edits preserve the public three-tier layout', async ({page,con
   await gold.locator('summary').first().click();
   await gold.getByLabel('Tier name').fill('Gold fixture');
   await gold.getByLabel('Status').selectOption('active');
-  await gold.getByLabel('Reason').fill('Sponsorship browser fixture');
+  await gold.getByLabel('Reason',{exact:true}).fill('Sponsorship browser fixture');
   await gold.getByLabel('Confirm changes to the public homepage').check();
   const saved=page.waitForResponse(response=>response.url().endsWith('/api/admin/sponsors/gold/') && response.status()===200);
   await gold.getByRole('button',{name:'Save tier'}).click();
