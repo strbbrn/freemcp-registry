@@ -17,7 +17,7 @@ const now=()=>Math.floor(Date.now()/1000);
 function fixture(t) {
   const sqlite=new DatabaseSync(':memory:');
   t.after(()=>sqlite.close());
-  for (const name of ['0001_servers','0002_server_details','0007_promotions','0008_promotion_slots','0010_admin','0011_admin_outbox_decisions']) {
+  for (const name of ['0001_servers','0002_server_details','0007_promotions','0008_promotion_slots','0010_admin','0011_admin_outbox_decisions','0012_admin_github_evidence']) {
     sqlite.exec(readFileSync(new URL('../migrations/'+name+'.sql',import.meta.url),'utf8'));
   }
   const statement=(sql,args=[])=>({
@@ -577,10 +577,10 @@ test('Overleaf-style submissions normalize links, aliases, tools and paragraphs 
   const before=structuredClone(original);
   const parsed=normalizedSubmission(original);
   assert.equal(parsed.details.transport,'stdio');
-  assert.equal(parsed.details.documentationUrls.length,2);
+  assert.equal(parsed.details.documentationUrls.length,1);
   assert.deepEqual(parsed.details.tools.map(tool=>tool.name),['list_projects','read_file','edit_file']);
   assert.deepEqual(parsed.details.installations[0].config.mcpServers['mcp-server-overleaf'].args,['--yes','mcp-server-overleaf@0.6.3','--stdio']);
-  assert.equal(parsed.details.prerequisites.length,1);
+  assert.equal(parsed.details.prerequisites.length,6);
   assert.deepEqual(original,before);
   const html=evidenceMarkdown('**review** [docs](https://example.org/) [bad](javascript:alert%281%29)\n\n<img src=x onerror=alert(1)>');
   assert.match(html,/<strong>review<\/strong>/);
@@ -600,7 +600,7 @@ test('saving a revised full candidate invalidates its approval and binds publica
     if (url.pathname.endsWith('/commits/main')) return Response.json({sha:'d'.repeat(40)});
     return Response.json({id:545,full_name:'example/reviewed',default_branch:'main'});
   });
-  const evidence=await submission(145);
+  const evidence=await submission(145,{config});
   const submit=async data=>reviewAction(config,'12345',145,{reason,version:await version(await reviewRow(config.db,145)),
     fingerprint:evidence.fingerprint,...data});
   const draft=candidate('reviewed-custom-id','https://github.com/example/reviewed');
@@ -637,25 +637,121 @@ test('multi-placement edits are checked, confirmed and audited together',async t
   assert.deepEqual(await editPromotion(config,'12345',primary,base),[primary,other]);
   assert.equal((await getPromotion(config.db,other)).headline,'Edited');
 });
-test('GitHub review token is scoped to project issues, public evidence is cached and rate limits back off', async t=>{
-  const {github,project,projectRead}=await import('../lib/admin/github.js');
-  let requests=0;
-  t.mock.method(globalThis,'fetch',async (path,opts)=>{
+test('GitHub evidence caches by environment, uses ETags, and persists cooldown across callers', async t=>{
+  const {config,sqlite}=fixture(t);
+  const { githubEvidence, githubEvidenceMetrics }=await import('../lib/admin/github-evidence.js');
+  const endpoint='/repos/example/cache-fixture';
+  let requests=0, rateStatus=0, mode='200';
+  t.mock.method(globalThis,'fetch',async (path,options)=>{
     requests++;
-    if (path.endsWith('/issues/9')) {
-      assert.equal(opts.headers.Authorization,'Bearer fixture-read-token');
-      return Response.json({number:9});
+    assert.equal(path,'https://api.github.com'+endpoint);
+    assert.equal(options.headers.Authorization,'Bearer fixture-read-token');
+    assert.equal(options.redirect,'manual');
+    if (rateStatus) return Response.json({message:'Undisclosed upstream details'},{status:rateStatus,headers:{'Retry-After':'60'}});
+    if (mode==='304') {
+      assert.equal(options.headers['If-None-Match'],'"fixture"');
+      return new Response(null,{status:304});
     }
-    assert.equal(opts.headers.Authorization,undefined);
-    if (path.endsWith('/limited')) return Response.json({message:'Private provider detail'},{status:429,headers:{'Retry-After':'1'}});
-    return Response.json({id:9});
+    return Response.json({id:9},{headers:{ETag:'"fixture"'}});
   });
-  await projectRead(project+'/issues/9','fixture-read-token');
-  assert.throws(()=>projectRead('/repos/example/a/issues/1','fixture-read-token'),/Invalid GitHub issue path/);
-  await github('/repos/example/cache-fixture',{cache:true});
-  await github('/repos/example/cache-fixture',{cache:true});
+  const request=(opts={},scope=config)=>githubEvidence(scope,'fixture-read-token',endpoint,opts);
+  assert.deepEqual((await request()).data,{id:9});
+  assert.equal((await request()).cached,true);
+  assert.equal(requests,1);
+  mode='304';
+  assert.equal((await request({fresh:true})).stale,false);
   assert.equal(requests,2);
-  await assert.rejects(()=>github('/repos/example/limited'),/Retry in about 1 minute/);
-  await assert.rejects(()=>github('/repos/example/backoff'),/Retry in about 1 minute/);
+  sqlite.prepare("UPDATE admin_github_cache SET checked_at=0 WHERE scope='preview'").run();
+  rateStatus=403;
+  assert.equal((await request()).stale,true);
+  rateStatus=429;
+  assert.equal((await request()).stale,true);
+  await assert.rejects(()=>request({fresh:true}),/Retry in about [12] minute/);
   assert.equal(requests,3);
+  await assert.rejects(()=>request({}, {...config,mode:'production'}),/rate limit/);
+  assert.equal(requests,4);
+  await assert.rejects(()=>githubEvidence(config,'fixture-read-token','/user'),/Invalid evidence endpoint/);
+  assert.deepEqual(await githubEvidenceMetrics(config),{requests:3,cacheHits:1,staleHits:2,conditional:2,
+    notModified:1,rateLimited:1,retryAt:(await githubEvidenceMetrics(config)).retryAt});
+});
+
+test('legacy HTML form no-op preserves missing, empty and structured values and produces no audit write',async t=>{
+  const {config,sqlite}=fixture(t);
+  const {serverCandidate}=await import('../lib/admin/servers.js');
+  const draft=await editServer(config,'12345',null,{...candidate('heming9-agenterm','https://github.com/Heming9/agenterm'),action:'create',reason});
+  const installations=[{title:'Hosted Streamable HTTP endpoint',config:{mcpServers:{agenterm:{type:'http',url:'https://host.example/mcp'}}}}];
+  for (const representation of [undefined,'',[],null,'legacy-key']) {
+    const details={installations,additional:{preserve:'yes'},...(representation===undefined?{}:{implementationKey:representation})};
+    sqlite.prepare('UPDATE servers SET details_json=?,tags_json=? WHERE id=?').run(JSON.stringify(details,null,2),'[ "fixture" ]',draft.id);
+    const row=await serverRow(config.db,draft.id);
+    const fields={listingForm:'yes',name:row.name,description:row.description,category:row.category,author:row.author,
+      github_url:row.github_url,stars:String(row.stars),tags:'fixture',summary:'',documentationUrl:'',documentationUrls:'',
+      pricing:'',serviceDependencies:'',transport:'',transports:'',implementationKey:String(representation??''),
+      prerequisites:'',security:'',installations:JSON.stringify(installations),tools:'[]',endpoints:'[]',sharedEndpoints:'{}'};
+    assert.deepEqual(serverCandidate(fields,row),{...row});
+    await editServer(config,'12345',row.id,{...fields,action:'save',confirm:'yes',reason,version:await version(row)});
+    assert.deepEqual(await serverRow(config.db,row.id),row);
+    if (Array.isArray(representation)) {
+      const cleared=serverCandidate({...fields,clearImplementationKey:'yes'},row);
+      assert.equal(JSON.parse(cleared.details_json).implementationKey,'');
+    }
+    if (representation==='legacy-key') {
+      const edited=serverCandidate({...fields,implementationKey:''},row);
+      assert.equal(JSON.parse(edited.details_json).implementationKey,'');
+    }
+  }
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM admin_audit_log WHERE action='save'").get().n,0);
+});
+
+for (const quotaStatus of [403,429]) test('saved draft operations make zero GitHub calls during '+quotaStatus+' cooldown',async t=>{
+  const {config,sqlite,env}=fixture(t);
+  const {checkEditableCandidate,displaySubmission}=await import('../lib/admin/submissions.js');
+  const {githubEvidence,githubEvidenceMetrics}=await import('../lib/admin/github-evidence.js');
+  const {serverCandidate}=await import('../lib/admin/servers.js');
+  const draft=serverCandidate(candidate('offline-draft','https://github.com/example/reviewed'));
+  let requests=0;
+  t.mock.method(globalThis,'fetch',async()=>{
+    requests++;
+    return Response.json({message:'rate-limited response'},{status:quotaStatus,headers:{'X-RateLimit-Remaining':'0','Retry-After':'120'}});
+  });
+  const review={number:177,status:'clarification',issue_hash:'saved-fingerprint',source_commit:'b'.repeat(40),
+    candidate_json:JSON.stringify({candidate:draft,exceptions:{},serverVersion:null}),actor:'12345',updated_at:'2026-11-27',server_id:null};
+  sqlite.prepare('INSERT INTO submission_reviews VALUES(?,?,?,?,?,?,?,?)').run(...Object.values(review));
+  const latestPage='/repos/strbbrn/freemcp-registry/issues?state=all&per_page=40&page=1';
+  await assert.rejects(()=>githubEvidence(config,'fixture-token',latestPage),/rate limit/);
+  const evidence=await displaySubmission(config,177,review,{commentsPage:1,readToken:'fixture-token'});
+  assert.equal(evidence.stale,true);
+  const fields={version:await version(review),fingerprint:review.issue_hash,reason,candidate:{
+    ...candidate('offline-draft','https://github.com/example/reviewed'),name:'Edited offline'}};
+  const raw=await seedSession(sqlite,config);
+  const cookie=sessionCookie(raw);
+  const identity=await (await run(env,'/api/admin/session/',{headers:{Cookie:cookie}})).json();
+  const post=(action,payload=fields)=>run(env,'/api/admin/submissions/177/',{method:'POST',
+    headers:{Cookie:cookie,Origin:preview,'Content-Type':'application/json'},body:JSON.stringify({...payload,action,csrf:identity.csrf})});
+  assert.equal((await run(env,'/admin/submissions/177/',{headers:{Cookie:cookie}})).status,200);
+  assert.match(await (await run(env,'/admin/submissions/',{headers:{Cookie:cookie}})).text(),/Saved drafts/);
+  assert.equal((await post('validate-candidate')).status,200);
+  const rendered=await post('preview-candidate');
+  assert.equal(rendered.status,200);
+  assert.match(await rendered.text(),/Edited offline/);
+  assert.equal((await post('save-candidate')).status,200);
+  const saved=await reviewRow(config.db,177);
+  assert.equal(JSON.parse(saved.candidate_json).candidate.name,'Edited offline');
+  assert.equal(saved.source_commit,review.source_commit);
+  assert.equal(requests,1);
+  const correct={...fields,version:await version(saved),fingerprint:saved.issue_hash,confirm:'yes'};
+  assert.equal((await post('approved',correct)).status,503);
+  const invalidInput={...correct,candidate:{...candidate('offline-draft','https://github.com/example/reviewed'),details:{
+    documentationUrl:'',transport:'unknown',transports:[],installations:[],tools:[],prerequisites:[],security:[]}}};
+  const failed=await post('validate-candidate',invalidInput);
+  assert.equal(failed.status,400);
+  assert.deepEqual((await failed.json()).issues.map(issue=>issue.field),['documentationUrl','transport','installations','tools','prerequisites','security']);
+  sqlite.prepare("UPDATE submission_reviews SET status='approved' WHERE number=177").run();
+  const approved=await reviewRow(config.db,177);
+  assert.equal((await post('publish',{...correct,version:await version(approved)})).status,503);
+  assert.equal(await serverRow(config.db,draft.id),null);
+  assert.equal(requests,1);
+  assert.equal((await githubEvidenceMetrics(config)).requests,1);
+  const uncached=await checkEditableCandidate(config,177,{...correct,version:await version(approved),action:'preview-candidate'});
+  assert.equal(uncached.id,draft.id);
 });

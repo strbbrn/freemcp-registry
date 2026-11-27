@@ -11,3 +11,7 @@ CREATE TRIGGER test_admin_audit_ignored BEFORE INSERT ON admin_audit_log
 BEGIN
   SELECT RAISE(IGNORE);
 END;
+INSERT INTO submission_reviews(number,status,issue_hash,source_commit,candidate_json,actor,updated_at,server_id) VALUES
+  (901,'clarification','offline-browser-fixture','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+   '{"candidate":{"id":"offline-browser-candidate","name":"Offline browser fixture","description":"An incomplete private fixture","category":"Other","author":"Fixture","github_url":"https://github.com/example/offline-browser-candidate","stars":0,"updated_at":"2026-11-27","tags_json":"[]","details_json":"{\"review\":{\"status\":\"pending-publication\",\"issue\":901,\"source\":\"approved-submission\"}}"},"exceptions":{},"serverVersion":null}',
+   '12345','2026-11-27',NULL);

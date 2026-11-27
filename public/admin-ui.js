@@ -207,15 +207,54 @@ for (const form of document.querySelectorAll('form[data-admin-mutation]')) {
     event.preventDefault();
     const feedback = form.querySelector('.form-feedback');
     const submit = event.submitter;
+    const fields=new FormData(form);
+    if (submit?.name==='action') fields.set('action',submit.value);
+    const validating=fields.get('action')==='validate-candidate';
     if (submit) submit.disabled = true;
+    for (const field of form.querySelectorAll('[data-validation-error]')) {
+      field.removeAttribute('aria-invalid');
+      field.removeAttribute('data-validation-error');
+    }
     feedback.removeAttribute('data-error');
-    feedback.textContent = 'Saving…';
+    feedback.textContent = validating?'Validating…':'Saving…';
     try {
       const response = await fetch(form.getAttribute('action'),{method:'POST',credentials:'same-origin',headers:{Accept:'application/json'},
-        body:new URLSearchParams(new FormData(form))});
+        body:new URLSearchParams(fields)});
       const result = response.headers.get('content-type')?.includes('application/json') ? await response.json() : {};
       if (response.redirected) throw new Error('This session or form has expired. Reload the page.');
+      if (!response.ok && Array.isArray(result.issues) && result.issues.length) {
+        feedback.dataset.error='true';
+        feedback.replaceChildren();
+        const label=document.createElement('strong');
+        label.textContent='Review these fields';
+        const list=document.createElement('ul');
+        for (const issue of result.issues) {
+          const row=document.createElement('li');
+          const control=form.elements.namedItem(fields.get('useAdvanced')==='yes'?'candidateJson':issue.field);
+          if (control instanceof HTMLElement) {
+            control.setAttribute('aria-invalid','true');
+            control.dataset.validationError='true';
+            const locate=document.createElement('button');
+            locate.type='button';
+            locate.textContent=issue.message;
+            locate.addEventListener('click',()=>{
+              for(let parent=control.parentElement;parent&&parent!==form;parent=parent.parentElement) if (parent instanceof HTMLDetailsElement) parent.open=true;
+              const target=control.getClientRects().length?control:control.parentElement?.nextElementSibling?.querySelector('input, textarea, button');
+              (target??feedback).focus();
+            });
+            row.append(locate);
+          } else row.textContent=issue.message;
+          list.append(row);
+        }
+        feedback.append(label,list);
+        feedback.focus();
+        return;
+      }
       if (!response.ok) throw new Error(result.error || 'The request failed.');
+      if (validating) {
+        feedback.textContent='Validation and duplicate checks passed. Save the candidate before approval.';
+        return;
+      }
       editorsWithChanges.delete(form);
       if (typeof result.location === 'string' && result.location.startsWith('/admin/')) location.assign(result.location);
       else feedback.textContent = 'Saved.';

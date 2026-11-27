@@ -111,3 +111,15 @@ pre{background:var(--field);padding:.65rem;border-radius:7px;white-space:pre-wra
   .layout:has(>.nav-drawer){display:grid;grid-template-columns:175px minmax(0,1fr);gap:1.35rem}
   .nav-drawer{padding-top:1.2rem}
 }
+
+.notice{border:1px solid var(--border);border-radius:8px;padding:.65rem .8rem;overflow-wrap:anywhere}
+.form-feedback ul{padding-inline-start:1.3rem;margin:.4rem 0}
+.form-feedback li{overflow-wrap:anywhere}
+.form-feedback li button{display:block;text-align:start;white-space:normal;width:100%;margin:.25rem 0}
+.form-feedback:focus{outline:2px solid var(--accent);outline-offset:2px}
+[aria-invalid=true]{border-color:var(--error)}
+.markdown pre,main pre,.editor-section-body textarea{max-width:100%;min-width:0;overflow-wrap:anywhere}
+@media(max-width:760px){
+  input,textarea,select{font-size:1rem}
+  .stage-links a{flex:1 1 auto;justify-content:center}
+}

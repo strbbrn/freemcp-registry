@@ -227,3 +227,40 @@ for (const width of [320,360,390,430,768,1440]) {
     }
   });
 }
+
+for (const width of [320,390,430,1440]) {
+  test('saved submission keeps inline validation and layout at '+width+' CSS pixels',async ({page,context})=>{
+    test.skip(!local,'Requires the isolated authenticated fixture');
+    await authenticated(context);
+    await page.setViewportSize({width,height:850});
+    await page.goto('/admin/submissions/901/');
+    await expect(page.getByText('Cached evidence may be stale.',{exact:false})).toBeVisible();
+    await expect(page.locator('meta[name="viewport"]')).toHaveCount(1);
+    expect(await page.locator('meta[name="viewport"]').getAttribute('content')).toContain('width=device-width');
+    await page.getByLabel('Name',{exact:true}).fill('Unsaved text survives validation');
+    await page.locator('summary',{hasText:/^Advanced JSON editor$/}).click();
+    const json=page.getByRole('textbox',{name:'Candidate JSON',exact:true});
+    await json.fill('{ invalid advanced JSON');
+    await page.getByLabel('Use this JSON instead of the structured fields').check();
+    await page.getByRole('button',{name:'Validate candidate',exact:true}).click();
+    await expect(page.getByRole('button',{name:/Advanced candidate JSON must be valid JSON/})).toBeVisible();
+    await expect(json).toHaveValue('{ invalid advanced JSON');
+    await page.getByLabel('Use this JSON instead of the structured fields').uncheck();
+    await page.getByRole('button',{name:'Validate candidate',exact:true}).click();
+    await expect(page.getByRole('button',{name:/provide a maintainer documentation URL/})).toBeVisible();
+    await expect(page.getByRole('button',{name:/select a documented transport/})).toBeVisible();
+    await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Unsaved text survives validation');
+    await expect(json).toHaveValue('{ invalid advanced JSON');
+    await expect(page.locator('.unsaved')).toBeVisible();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+    if(process.env.FREEMCP_ADMIN_SCREENSHOTS) {
+      await mkdir(process.env.FREEMCP_ADMIN_SCREENSHOTS,{recursive:true});
+      await page.screenshot({path:process.env.FREEMCP_ADMIN_SCREENSHOTS+'/'+width+'-inline-validation.png',animations:'disabled'});
+    }
+    page.once('dialog',dialog=>dialog.accept());
+    await page.goto('/admin/unknown-fixture/');
+    await expect(page.getByRole('heading',{name:'Page not found.'})).toBeVisible();
+    expect(await page.locator('meta[name="viewport"]').getAttribute('content')).toContain('width=device-width');
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+  });
+}
