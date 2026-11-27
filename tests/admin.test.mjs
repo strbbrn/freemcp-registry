@@ -257,32 +257,37 @@ test('GitHub reviews verify issue and source revisions before atomic publication
     throw Error(url.pathname);
   });
   const {items}=await (await import('../lib/admin/submissions.js')).listSubmissions(1);
-  assert.deepEqual(items.map(item=>item.number),[42]);
+  assert.deepEqual(items.map(item=>[item.number,item.kind]),[[42,'recognized'],[10,'unrelated']]);
   const first=await submission(42,{commentsPage:2,readme:true});
   assert.equal(first.comments.next,true);
   assert.equal(first.comments.items[0].body,'<em>comment</em>');
   const before=await version(null);
-  const {reviewDuplicate}=await import('../lib/admin/submissions.js');
+  const {reviewDuplicate,savedCandidateRevision}=await import('../lib/admin/submissions.js');
+  await submission(42,{config});
+  const submitted=candidate('example-submitted','https://github.com/example/submitted');
+  const save=(data={})=>reviewAction(config,'12345',42,{action:'save-candidate',candidate:submitted,reason,
+    version:before,fingerprint:first.fingerprint,...data});
   const duplicate=await editServer(config,'12345',null,{...candidate('alternate-submission','https://github.com/example/submitted'),action:'create',reason});
   assert.equal((await reviewDuplicate(config,first,null)).id,duplicate.id);
-  await assert.rejects(()=>reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',
-    confirm:'yes',version:before,fingerprint:first.fingerprint,reason,
-    publicationExceptions:{tools:'Fixture only',prerequisites:'Fixture only',security:'Fixture only'}}),/already listed under alternate-submission/);
+  await assert.rejects(()=>save(),/already listed under alternate-submission/);
   sqlite.prepare('DELETE FROM servers WHERE id=?').run(duplicate.id);
-  await reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',publicationExceptions:{tools:'Fixture has no tools',prerequisites:'Fixture has no prerequisites',security:'Fixture uses synthetic data'},confirm:'yes',version:before,fingerprint:first.fingerprint,reason});
+  await save();
+  const saved=await reviewRow(config.db,42);
+  const revision=await savedCandidateRevision(saved);
+  await reviewAction(config,'12345',42,{action:'approved',revision,confirm:'yes',version:await version(saved),fingerprint:first.fingerprint,reason});
   const review=await reviewRow(config.db,42);
   assert.equal(review.status,'approved');
   assert.equal(await serverRow(config.db,'example-submitted'),null);
   const approvedVersion=await version(review);
   sha='b'.repeat(40);
   const moved=await submission(42);
-  await assert.rejects(()=>reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:approvedVersion,fingerprint:moved.fingerprint,reason}),{status:409});
+  await assert.rejects(()=>reviewAction(config,'12345',42,{action:'publish',revision,confirm:'yes',version:approvedVersion,fingerprint:moved.fingerprint,reason}),{status:409});
   sha='a'.repeat(40);
   issueText=issueBody.replace('Synthetic submission','New description');
   const revised=await submission(42);
-  await assert.rejects(()=>reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:approvedVersion,fingerprint:revised.fingerprint,reason}),{status:409});
+  await assert.rejects(()=>reviewAction(config,'12345',42,{action:'publish',revision,confirm:'yes',version:approvedVersion,fingerprint:revised.fingerprint,reason}),{status:409});
   issueText=issueBody;
-  const result=await reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:approvedVersion,fingerprint:first.fingerprint,reason});
+  const result=await reviewAction(config,'12345',42,{action:'publish',revision,confirm:'yes',version:approvedVersion,fingerprint:first.fingerprint,reason});
   assert.ok(await registry(config.db).detail(result.serverId));
   assert.equal((await reviewRow(config.db,42)).status,'published');
   const queued=sqlite.prepare('SELECT * FROM admin_outbox').get();
@@ -300,13 +305,15 @@ test('GitHub reviews verify issue and source revisions before atomic publication
   await assert.rejects(async()=>editServer(config,'12345',draft.id,{action:'publish',confirm:'yes',reason,version:await version(draft)}),/through its submission review/);
   await editServer(config,'12345',draft.id,{action:'save',name:'Corrected listing',reason,version:await version(draft)});
   issue.state='closed';
-  const latest=await submission(42);
+  const latest=await submission(42,{config,refresh:true});
   await assert.rejects(async()=>reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:await version(hidden),fingerprint:latest.fingerprint,reason}),/explicit approval/);
-  await reviewAction(config,'12345',42,{action:'approved',command:'fixture-mcp',args:'[]',confirm:'yes',reason,
-    version:await version(hidden),fingerprint:latest.fingerprint,
-    publicationExceptions:{tools:'Fixture has no tools',prerequisites:'Fixture has no prerequisites',security:'Fixture uses synthetic data'}});
+  await save({version:await version(hidden),fingerprint:latest.fingerprint,candidate:{...submitted,name:'Corrected listing'}});
+  const corrected=await reviewRow(config.db,42);
+  const correctedRevision=await savedCandidateRevision(corrected);
+  await reviewAction(config,'12345',42,{action:'approved',revision:correctedRevision,confirm:'yes',reason,
+    version:await version(corrected),fingerprint:latest.fingerprint});
   const approvedAgain=await reviewRow(config.db,42);
-  const republished=await reviewAction(config,'12345',42,{action:'publish',confirm:'yes',version:await version(approvedAgain),fingerprint:latest.fingerprint,reason});
+  const republished=await reviewAction(config,'12345',42,{action:'publish',revision:correctedRevision,confirm:'yes',version:await version(approvedAgain),fingerprint:latest.fingerprint,reason});
   assert.equal(republished.serverId,server.id);
   assert.equal((await registry(config.db).detail(server.id)).name,'Corrected listing');
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM servers WHERE id=?').get(server.id).n,1);
@@ -627,22 +634,38 @@ test('saving a revised full candidate invalidates its approval and binds publica
     if (url.pathname.endsWith('/commits/main')) return Response.json({sha:'d'.repeat(40)});
     return Response.json({id:545,full_name:'example/reviewed',default_branch:'main'});
   });
+  const {savedCandidateRevision}=await import('../lib/admin/submissions.js');
   const evidence=await submission(145,{config});
-  const submit=async data=>reviewAction(config,'12345',145,{reason,version:await version(await reviewRow(config.db,145)),
-    fingerprint:evidence.fingerprint,...data});
+  const current=()=>reviewRow(config.db,145);
+  const submit=async data=>{
+    const row=await current();
+    return reviewAction(config,'12345',145,{reason,version:await version(row),revision:await savedCandidateRevision(row),
+      fingerprint:evidence.fingerprint,...data});
+  };
   const draft=candidate('reviewed-custom-id','https://github.com/example/reviewed');
   draft.details.documentationUrls=['https://example.org/workflows'];
+  draft.details.tools=Array.from({length:7},(_,i)=>({name:'fixture_'+i,description:'Documented action '+i}));
   await submit({action:'save-candidate',candidate:draft});
   assert.equal(await serverRow(config.db,draft.id),null);
   await submit({action:'approved',confirm:'yes'});
   assert.equal((await reviewRow(config.db,145)).status,'approved');
-  await submit({action:'save-candidate',candidate:{...draft,name:'Corrected candidate'}});
+  const oldApproval=await current();
+  const oldRevision=await savedCandidateRevision(oldApproval);
+  const corrected={...draft,name:'Corrected candidate',description:'A corrected description.',
+    details:{...draft.details,tools:Array.from({length:15},(_,i)=>({name:'fixture_'+i,description:'Documented action '+i}))}};
+  await assert.rejects(()=>submit({action:'save-candidate',candidate:draft,candidateJson:JSON.stringify(corrected)}),/JSON editor has changes/);
+  await submit({action:'save-candidate',candidateJson:JSON.stringify(corrected),useAdvanced:'yes'});
+  await assert.rejects(async()=>submit({action:'publish',confirm:'yes',version:await version(oldApproval),revision:oldRevision}),{status:409});
   assert.equal((await reviewRow(config.db,145)).status,'clarification');
   await assert.rejects(()=>submit({action:'publish',confirm:'yes'}),/explicit approval/);
+  await assert.rejects(()=>submit({action:'approved',confirm:'yes',revision:oldRevision}),/revision changed/);
   await submit({action:'approved',confirm:'yes'});
-  assert.equal((await submit({action:'publish',confirm:'yes',candidate:{...draft,name:'Injected name'}})).serverId,draft.id);
+  await assert.rejects(()=>submit({action:'publish',confirm:'yes',candidate:{...draft,name:'Injected name'}}),/Save candidate edits/);
+  assert.equal((await submit({action:'publish',confirm:'yes'})).serverId,draft.id);
   const publicRow=await registry(config.db).detail(draft.id);
   assert.equal(publicRow.name,'Corrected candidate');
+  assert.equal(publicRow.description,'A corrected description.');
+  assert.equal(publicRow.details.tools.length,15);
   assert.equal(publicRow.details.documentationUrls[0],'https://example.org/workflows');
   assert.equal(sqlite.prepare("SELECT count(*) n FROM admin_audit_log WHERE action='save-candidate'").get().n,2);
 });
@@ -732,7 +755,7 @@ test('legacy HTML form no-op preserves missing, empty and structured values and 
 
 for (const quotaStatus of [403,429]) test('saved draft operations make zero GitHub calls during '+quotaStatus+' cooldown',async t=>{
   const {config,sqlite,env}=fixture(t);
-  const {checkEditableCandidate,displaySubmission}=await import('../lib/admin/submissions.js');
+  const {checkEditableCandidate,displaySubmission,savedCandidateRevision}=await import('../lib/admin/submissions.js');
   const {githubEvidence,githubEvidenceMetrics}=await import('../lib/admin/github-evidence.js');
   const {serverCandidate}=await import('../lib/admin/servers.js');
   const draft=serverCandidate(candidate('offline-draft','https://github.com/example/reviewed'));
@@ -766,8 +789,9 @@ for (const quotaStatus of [403,429]) test('saved draft operations make zero GitH
   assert.equal(JSON.parse(saved.candidate_json).candidate.name,'Edited offline');
   assert.equal(saved.source_commit,review.source_commit);
   assert.equal(requests,1);
-  const correct={...fields,version:await version(saved),fingerprint:saved.issue_hash,confirm:'yes'};
-  assert.equal((await post('approved',correct)).status,503);
+  const correct={...fields,version:await version(saved),fingerprint:saved.issue_hash,confirm:'yes',revision:await savedCandidateRevision(saved)};
+  const decision={version:correct.version,fingerprint:correct.fingerprint,confirm:'yes',revision:correct.revision,reason};
+  assert.equal((await post('approved',decision)).status,503);
   const invalidInput={...correct,candidate:{...candidate('offline-draft','https://github.com/example/reviewed'),details:{
     documentationUrl:'',transport:'unknown',transports:[],installations:[],tools:[],prerequisites:[],security:[]}}};
   const failed=await post('validate-candidate',invalidInput);
@@ -775,14 +799,16 @@ for (const quotaStatus of [403,429]) test('saved draft operations make zero GitH
   assert.deepEqual((await failed.json()).issues.map(issue=>issue.field),['documentationUrl','transport','installations','tools','prerequisites','security']);
   await post('save-candidate',invalidInput).then(response=>assert.equal(response.status,200));
   const incomplete=await reviewRow(config.db,177);
-  const reject=await post('approved',{...correct,version:await version(incomplete)});
+  const reject=await post('approved',{...decision,version:await version(incomplete),revision:await savedCandidateRevision(incomplete)});
   assert.equal(reject.status,400);
   assert.match((await reject.json()).error,/Publication readiness/);
   assert.equal(requests,1);
   await post('save-candidate',{...correct,version:await version(incomplete)}).then(response=>assert.equal(response.status,200));
-  sqlite.prepare("UPDATE submission_reviews SET status='approved' WHERE number=177").run();
+  const ready=await reviewRow(config.db,177);
+  const readyRevision=await savedCandidateRevision(ready);
+  sqlite.prepare("UPDATE submission_reviews SET status='approved',candidate_json=json_set(candidate_json,'$.approvedRevision',?) WHERE number=177").run(readyRevision);
   const approved=await reviewRow(config.db,177);
-  assert.equal((await post('publish',{...correct,version:await version(approved)})).status,503);
+  assert.equal((await post('publish',{...decision,version:await version(approved),revision:readyRevision})).status,503);
   assert.equal(await serverRow(config.db,draft.id),null);
   assert.equal(requests,1);
   assert.equal((await githubEvidenceMetrics(config)).requests,1);
@@ -921,4 +947,107 @@ test('a preview cookie and write stay on the preview binding',async t=>{
   assert.equal((await run(localPreview.env,'/api/admin/servers/',opts)).status,200);
   assert.ok(await serverRow(localPreview.config.db,payload.id));
   assert.equal(await serverRow(localProduction.config.db,payload.id),null);
+});
+
+test('published listing JSON edits preserve protected metadata and restore complete content atomically',async t=>{
+  const {config,sqlite}=fixture(t);
+  const {listingDocument}=await import('../lib/admin/servers.js');
+  const {renderListing}=await import('../functions/servers/[id].js');
+  const makeTools=count=>Array.from({length:count},(_,index)=>({name:'fixture_'+index,description:'Documented action '+index}));
+  const original=candidate('json-listing','https://github.com/example/json-listing');
+  original.details.tools=makeTools(7);
+  await editServer(config,'12345',null,{...original,action:'create',reason});
+  sqlite.prepare("UPDATE servers SET details_json=json_set(details_json,'$.review',json(?),'$.lifecycle','archived','$.lifecycleSource','registry','$.githubMetadata',json(?),'$.partner',json(?)) WHERE id=?")
+    .run(JSON.stringify({status:'published',source:'approved-submission',issue:987,sourceCommit:'a'.repeat(40)}),
+      JSON.stringify({archived:false,disabled:false}),JSON.stringify({retained:true}),original.id);
+  const old=await serverRow(config.db,original.id);
+  const document=listingDocument(old);
+  const replacement={...document,description:'New public JSON description',tags:['updated'],
+    details:{...document.details,tools:makeTools(15),prerequisites:['Synthetic client'],security:['Only synthetic records'],
+      installations:[{title:'New client',client:'Fixture',config:{mcpServers:{fixture:{command:'fixture-v2',args:['--local']}}}}],
+      newMetadata:{version:2}}};
+  delete replacement.details.partner;
+  const save=async (value,extra={})=>editServer(config,'12345',old.id,{action:'save',useAdvanced:'yes',candidateJson:
+    typeof value==='string'?value:JSON.stringify(value),reason,confirm:'yes',version:await version(old),...extra});
+  await assert.rejects(()=>save('{'),/valid JSON/);
+  await assert.rejects(()=>save({...replacement,details:[]}),/details must be an object/);
+  await assert.rejects(()=>save({...replacement,id:'different-id'}),/immutable/);
+  await assert.rejects(()=>save({...replacement,details:{...replacement.details,review:{status:'test-only'}}}),/protected details.review/);
+  await assert.rejects(()=>save({...replacement,removeDetails:['githubMetadata']}),/editable details keys/);
+  await assert.rejects(()=>save({...replacement,details:{...replacement.details,tools:[]}}),/Publication readiness/);
+  const other=await editServer(config,'12345',null,{...candidate('other-json','https://github.com/example/other-json'),action:'create',reason});
+  await assert.rejects(()=>save({...replacement,github_url:other.github_url}),/already listed/);
+  sqlite.exec("CREATE TRIGGER ignore_json_audit BEFORE INSERT ON admin_audit_log WHEN NEW.action='save-json' AND NEW.reason='Audit fixture ignore' BEGIN SELECT RAISE(IGNORE); END");
+  await assert.rejects(()=>save(replacement,{reason:'Audit fixture ignore'}),{status:409});
+  assert.deepEqual(await serverRow(config.db,old.id),old);
+  const edited=await save(replacement);
+  const active=await registry(config.db).detail(old.id);
+  assert.equal(active.details.tools.length,15);
+  assert.equal(active.description,replacement.description);
+  assert.deepEqual(active.tags,replacement.tags);
+  assert.deepEqual(active.details.review,document.details.review);
+  assert.deepEqual(active.details.githubMetadata,document.details.githubMetadata);
+  assert.equal(active.details.lifecycle,'archived');
+  assert.deepEqual(active.details.partner,{retained:true});
+  assert.deepEqual(active.details.newMetadata,{version:2});
+  const html=renderListing(active);
+  for (const content of ['Explore tools (15)','New public JSON description','Synthetic client','Only synthetic records','fixture-v2']) assert.ok(html.includes(content));
+  await assert.rejects(()=>save(replacement),{status:409});
+  const history=sqlite.prepare("SELECT * FROM admin_audit_log WHERE action='save-json'").get();
+  assert.equal(JSON.parse(history.before_json).toolCount,7);
+  assert.equal(JSON.parse(history.after_json).toolCount,15);
+  const restored=await editServer(config,'12345',old.id,{action:'restore',revision:history.id,confirm:'yes',version:await version(edited),reason});
+  assert.deepEqual(listingDocument(restored),document);
+});
+
+test('issue discovery includes issue #48 format, legacy, unrelated and redacted issues with pagination',async t=>{
+  const {config,env,sqlite}=fixture(t);
+  const {listSubmissions}=await import('../lib/admin/submissions.js');
+  const {issueContent}=await import('../src/lib/submission.mjs');
+  const title='MCP server submission: UltraTransfer (MIT, local stdio)';
+  const body='## Server details\n- Name: UltraTransfer\n- Repository: https://github.com/mmxb8/UltraTransfer\n- Category: Development / Utilities\n- Transport: local stdio\n- Description: Verified file exchange.\n\n## Installation evidence\nInstallation guide: https://github.com/mmxb8/UltraTransfer/blob/main/AGENT_INSTALL.md';
+  const standard=issueContent({repository:'https://github.com/example/standard',name:'Fixture',category:'Other',
+    description:'Synthetic',transport:'stdio',installation:'fixture-mcp'},[]);
+  const issue=(number,title,body,state='open')=>({number,title,body,state,updated_at:'2026-11-27'});
+  const items=[issue(48,title,body),issue(49,'Standard',standard),issue(50,'Old format','## Server Details\n**Server Name:** Old format\n**GitHub Repository URL:** https://github.com/example/legacy\n**Short Description:** Legacy example\n**Category:** Other\n','closed'),
+    issue(51,'Historical task','Fix footer','closed'),{...issue(52,'Code change','Example'),pull_request:{}},
+    issue(53,'MCP secret sample','-----BEGIN PRIVATE KEY-----')];
+  let listRequests=0;
+  t.mock.method(globalThis,'fetch',async input=>{
+    const u=new URL(input);
+    if (u.pathname.endsWith('/issues')) {
+      listRequests++;
+      const state=u.searchParams.get('state');
+      return Response.json(items.filter(item=>state==='all'||item.state===state),{headers:{Link:'<https://api.github.com/example>; rel="next"'}});
+    }
+    if (u.pathname.endsWith('/issues/48')) return Response.json(items[0]);
+    if (u.pathname.endsWith('/issues/53')) return Response.json(items[5]);
+    if (u.pathname.endsWith('/commits/main')) return Response.json({sha:'c'.repeat(40)});
+    return Response.json({id:540,full_name:'mmxb8/UltraTransfer',default_branch:'main'});
+  });
+  const page=await listSubmissions(1,null,config);
+  assert.equal(page.next,true);
+  assert.deepEqual(page.items.map(item=>[item.number,item.kind]),[[48,'unrecognized'],[49,'recognized'],[50,'recognized'],[51,'unrelated'],[53,'unrecognized']]);
+  assert.equal(page.items.at(-1).title,'Redacted issue');
+  await listSubmissions(1,null,config);
+  assert.equal(listRequests,1);
+  const closed=await listSubmissions(1,null,config,'closed');
+  assert.deepEqual(closed.items.map(item=>item.number),[50,51]);
+  const raw=await seedSession(sqlite,config);
+  const list=await run(env,'/admin/submissions/?state=closed&review=historical&kind=unrelated',{headers:{Cookie:sessionCookie(raw)}});
+  const html=await list.text();
+  assert.match(html,/Historical task/);
+  assert.match(html,/Closed · no recorded review/);
+  assert.match(html,/state=closed&amp;kind=unrelated&amp;review=historical/);
+  assert.doesNotMatch(html,/Old format/);
+  await assert.rejects(()=>submission(53,{config}),{status:422});
+  const evidence=await submission(48,{config});
+  assert.equal(evidence.fields.Repository,'https://github.com/mmxb8/UltraTransfer');
+  assert.equal(evidence.source.sha,'c'.repeat(40));
+  assert.match(evidence.findings.warnings.join(' '),/Missing submission field: Documented tools/);
+  const draft=candidate('synthetic-issue48','https://github.com/mmxb8/UltraTransfer');
+  const saved=await reviewAction(config,'12345',48,{action:'save-candidate',useAdvanced:'yes',candidateJson:JSON.stringify(draft),
+    fingerprint:evidence.fingerprint,version:await version(null),reason});
+  assert.equal(saved.status,'save-candidate');
+  assert.equal(await serverRow(config.db,draft.id),null);
 });

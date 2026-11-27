@@ -260,20 +260,24 @@ for (const width of [320,390,430,1440]) {
     await expect(page.getByText('Cached evidence may be stale.',{exact:false})).toBeVisible();
     await expect(page.locator('meta[name="viewport"]')).toHaveCount(1);
     expect(await page.locator('meta[name="viewport"]').getAttribute('content')).toContain('width=device-width');
-    await page.getByLabel('Name',{exact:true}).fill('Unsaved text survives validation');
     await page.locator('summary',{hasText:/^Advanced JSON editor$/}).click();
-    const json=page.getByRole('textbox',{name:'Candidate JSON',exact:true});
+    const json=page.getByRole('textbox',{name:'Listing JSON',exact:true});
+    const savedJSON=await json.inputValue();
     await json.fill('{ invalid advanced JSON');
-    await page.getByLabel('Use this JSON instead of the structured fields').check();
     await page.getByRole('button',{name:'Validate candidate',exact:true}).click();
-    await expect(page.getByRole('button',{name:/Advanced candidate JSON must be valid JSON/})).toBeVisible();
+    await expect(page.getByText('Both editors can contain unsaved work.',{exact:false})).toBeVisible();
+    await page.getByLabel('Use JSON instead of structured fields').check();
+    await page.getByRole('button',{name:'Validate candidate',exact:true}).click();
+    await expect(page.getByRole('button',{name:/Listing JSON must be valid JSON/})).toBeVisible();
     await expect(json).toHaveValue('{ invalid advanced JSON');
-    await page.getByLabel('Use this JSON instead of the structured fields').uncheck();
+    await json.fill(savedJSON);
+    await page.getByLabel('Use JSON instead of structured fields').uncheck();
+    await page.getByLabel('Name',{exact:true}).fill('Unsaved text survives validation');
     await page.getByRole('button',{name:'Validate candidate',exact:true}).click();
     await expect(page.getByRole('button',{name:/provide a maintainer documentation URL/})).toBeVisible();
     await expect(page.getByRole('button',{name:/select a documented transport/})).toBeVisible();
     await expect(page.getByLabel('Name',{exact:true})).toHaveValue('Unsaved text survives validation');
-    await expect(json).toHaveValue('{ invalid advanced JSON');
+    await expect(json).toHaveValue(savedJSON);
     await expect(page.locator('.unsaved')).toBeVisible();
     expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     if(process.env.FREEMCP_ADMIN_SCREENSHOTS) {
@@ -327,4 +331,63 @@ test('mobile campaign editor keeps restored placements available for a synchroni
     const result=await request.get('/api/admin/promotions/'+id+'/',{headers});
     expect((await result.json()).promotion.status).toBe('paused');
   }
+});
+
+test('mobile registry editor synchronizes JSON, previews unsaved changes and saves the public listing',async ({page,context,request})=>{
+  test.skip(!local,'Requires an isolated D1 listing and fixture session');
+  test.setTimeout(50_000);
+  await page.setViewportSize({width:360,height:850});
+  await authenticated(context);
+  const headers={Cookie:session,Origin:origin};
+  const {csrf}=await (await request.get('/api/admin/session/',{headers})).json();
+  const id='mobile-registry-json';
+  const tools=length=>Array.from({length},(_,index)=>({name:'demo_tool_'+index,description:'Documented synthetic tool '+index}));
+  const candidate={id,name:'JSON editing fixture',description:'Original public description',category:'Other',author:'Fixture',
+    github_url:'https://github.com/example/mobile-registry-json',tags:['fixture'],
+    details:{transport:'stdio',documentationUrl:'https://example.org/docs',installations:[{title:'Local fixture',config:{command:'synthetic-mcp'}}],
+      tools:tools(7),prerequisites:['Synthetic setup'],security:['Synthetic data only']}};
+  const initial=await request.post('/api/admin/servers/',{headers,data:{...candidate,action:'create',reason:'Browser JSON draft',csrf}});
+  expect(initial.ok()).toBeTruthy();
+  const {data:{version}}=await initial.json();
+  const publication=await request.post('/api/admin/servers/'+id+'/',{headers,data:{action:'publish',confirm:'yes',version,reason:'Browser fixture publication',csrf}});
+  expect(publication.ok()).toBeTruthy();
+  await page.goto('/admin/servers/'+id+'/');
+  await page.locator('summary',{hasText:/^Advanced JSON editor$/}).click();
+  const json=page.getByRole('textbox',{name:'Listing JSON',exact:true});
+  const exported=JSON.parse(await json.inputValue());
+  expect(exported.details.tools).toHaveLength(7);
+  exported.details.tools=tools(15);
+  exported.details.customFixture={value:42};
+  exported.description='JSON-updated description';
+  await json.fill(JSON.stringify(exported));
+  await page.getByRole('button',{name:'Load JSON into structured fields',exact:true}).click();
+  await expect(page.getByLabel('Description',{exact:true})).toHaveValue(exported.description);
+  await expect(page.getByLabel('Use JSON instead of structured fields')).toBeChecked();
+  await page.getByLabel('Description',{exact:true}).fill('Synced structured description');
+  await page.getByRole('button',{name:'Load structured values into JSON',exact:true}).click();
+  await expect(json).toHaveValue(/Synced structured description/);
+  expect(JSON.parse(await json.inputValue()).details.customFixture).toEqual({value:42});
+  await page.getByRole('button',{name:'Validate listing',exact:true}).click();
+  await expect(page.getByText('Validation and duplicate checks passed for the current edits.')).toBeVisible();
+  const [popup]=await Promise.all([
+    page.waitForEvent('popup'),
+    page.getByRole('button',{name:'Preview unsaved listing',exact:true}).click(),
+  ]);
+  await expect(popup.getByText(/Unsaved listing changes/)).toBeVisible();
+  await expect(popup.getByRole('link',{name:/Explore tools \(15\)/})).toBeVisible();
+  await expect(popup.getByText('Synced structured description',{exact:true}).first()).toBeVisible();
+  await popup.close();
+  const before=await request.get('/servers/'+id);
+  expect(await before.text()).toContain('Explore tools (7)');
+  await page.getByLabel('Reason',{exact:true}).first().fill('Update listing through the JSON editor');
+  await page.getByLabel('Apply these edits to the public listing.').check();
+  const [response]=await Promise.all([
+    page.waitForResponse(res=>res.url().endsWith('/api/admin/servers/'+id+'/')&&res.request().method()==='POST'),
+    page.getByRole('button',{name:'Save changes',exact:true}).click(),
+  ]);
+  expect(response.ok(),await response.text()).toBeTruthy();
+  const after=await request.get('/servers/'+id);
+  expect(await after.text()).toContain('Explore tools (15)');
+  expect(await after.text()).toContain('Synced structured description');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });

@@ -123,3 +123,9 @@ pre{background:var(--field);padding:.65rem;border-radius:7px;white-space:pre-wra
   input,textarea,select{font-size:1rem}
   .stage-links a{flex:1 1 auto;justify-content:center}
 }
+
+.listing-json textarea {
+  min-height: 14rem;
+  font: 0.9rem/1.5 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
