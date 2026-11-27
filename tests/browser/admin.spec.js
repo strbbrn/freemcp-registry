@@ -113,7 +113,7 @@ for (const [device,width,height] of [['mobile',390,844],['desktop',1440,900]]) {
     page.once('dialog',dialog=>dialog.accept());
     await page.getByRole('link',{name:'Back to editor'}).click();
     await expect(page.getByLabel('Name',{exact:true})).toHaveValue(title);
-    await page.getByRole('link',{name:'Preview',exact:true}).click();
+    await page.getByRole('link',{name:'Preview saved listing',exact:true}).click();
     await expect(page.getByText('fixture_tool',{exact:true})).toBeVisible();
     await page.getByRole('link',{name:'Back to the listing editor'}).click();
     await page.locator('summary',{hasText:/^Publication and lifecycle$/}).click();
@@ -361,9 +361,9 @@ test('mobile registry editor synchronizes JSON, previews unsaved changes and sav
   exported.description='JSON-updated description';
   await json.fill(JSON.stringify(exported));
   await page.getByRole('button',{name:'Load JSON into structured fields',exact:true}).click();
-  await expect(page.getByLabel('Description',{exact:true})).toHaveValue(exported.description);
+  await expect(page.getByRole('textbox',{name:'Description',exact:true})).toHaveValue(exported.description);
   await expect(page.getByLabel('Use JSON instead of structured fields')).toBeChecked();
-  await page.getByLabel('Description',{exact:true}).fill('Synced structured description');
+  await page.getByRole('textbox',{name:'Description',exact:true}).fill('Synced structured description');
   await page.getByRole('button',{name:'Load structured values into JSON',exact:true}).click();
   await expect(json).toHaveValue(/Synced structured description/);
   expect(JSON.parse(await json.inputValue()).details.customFixture).toEqual({value:42});

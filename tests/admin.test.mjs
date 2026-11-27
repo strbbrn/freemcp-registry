@@ -73,6 +73,11 @@ test('every admin page and API and alternate hostname is protected', async t=>{
   }
   assert.equal((await run({...env,ADMIN_GITHUB_CLIENT_SECRET:undefined},'/admin/login/')).status,503);
   assert.equal((await run({...env,CF_PAGES_BRANCH:'main'},'/admin/login/')).status,404);
+  const featureEnv={...env,CF_PAGES_BRANCH:'feature/registry-json-revisions'};
+  const featureOrigin='https://feature-registry-json-revisi.freemcp.pages.dev';
+  assert.equal((await run(featureEnv,'/admin/login/',{},featureOrigin)).status,200);
+  assert.equal((await run(featureEnv,'/admin/login/',{},preview)).status,404);
+  assert.equal((await run(env,'/admin/login/',{},featureOrigin)).status,404);
   assert.equal((await run({...env,ADMIN_ENV:'production',CF_PAGES_BRANCH:'main'},'/admin/login/',{},prod)).status,200);
   assert.equal((await run(env,'/admin/oauth/start/',{method:'GET'})).status,405);
 });

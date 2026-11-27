@@ -197,7 +197,7 @@ for (const form of document.querySelectorAll('form:has([data-listing-fields])'))
   form.addEventListener('input',describe);
   form.addEventListener('change',describe);
   form.addEventListener('formdata',({formData})=>{
-    if (!advanced.checked && !dirty().json) formData.delete('candidateJson');
+    if (!advanced.checked && !dirty().json && !formData.getAll('action').includes('sync-json')) formData.delete('candidateJson');
     if (baseJson) formData.set('baseJson',baseJson);
   });
   form.querySelector('[data-copy-listing]').addEventListener('click',async ()=>{
@@ -281,7 +281,7 @@ for (const form of document.querySelectorAll('form[data-admin-mutation]')) {
     event.preventDefault();
     const feedback = form.querySelector('.form-feedback');
     const submit = event.submitter;
-    const fields=new FormData(form);
+    const fields=new FormData(form,submit);
     if (submit?.name==='action') fields.set('action',submit.value);
     const action=fields.get('action');
     const validating=['validate-candidate','validate-listing'].includes(action);
