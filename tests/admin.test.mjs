@@ -99,6 +99,8 @@ test('OAuth validates PKCE, authorized numeric ID, state expiry and single use',
       return Response.json({access_token:'fixture-github-token'});
     }
     assert.equal(path,'https://api.github.com/user');
+    assert.equal(options.redirect,'manual');
+    assert.equal(options.headers.Authorization,'Bearer fixture-github-token');
     return Response.json({id,login:'fixture'});
   });
   assert.equal((await run(env,'/admin/oauth/start/',{method:'POST',headers:{Origin:prod}})).status,403);
@@ -119,6 +121,24 @@ test('OAuth validates PKCE, authorized numeric ID, state expiry and single use',
   assert.equal(sqlite.prepare('SELECT COUNT(*) AS total FROM admin_sessions').get().total,1);
   assert.equal(sqlite.prepare("SELECT COUNT(*) AS total FROM admin_audit_log WHERE action='sign-in'").get().total,1);
   assert.doesNotMatch(JSON.stringify(sqlite.prepare('SELECT * FROM admin_sessions').all()),/fixture-github-token/);
+});
+
+test('OAuth refuses GitHub identity redirects without exposing provider details', async t=>{
+  const {env,sqlite}=fixture(t);
+  const fetchMock=t.mock.method(globalThis,'fetch',async (url,options)=>{
+    if (url==='https://github.com/login/oauth/access_token') return Response.json({access_token:'fixture-github-token'});
+    assert.equal(url,'https://api.github.com/user');
+    assert.equal(options.redirect,'manual');
+    return Response.redirect('https://example.com/private-provider-detail',302);
+  });
+  const {state}=await loginStart(env);
+  const result=await callback(env,state);
+  assert.equal(result.status,502);
+  const body=await result.text();
+  assert.match(body,/GitHub identity lookup returned HTTP 302/);
+  assert.doesNotMatch(body,/private-provider-detail|fixture-github-token/);
+  assert.equal(fetchMock.mock.callCount(),2);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS total FROM admin_sessions').get().total,0);
 });
 async function seedSession(sqlite,mode='preview',expires=now()+4000) {
   const raw=token();
