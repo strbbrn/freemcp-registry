@@ -1,12 +1,13 @@
 import {readFileSync,readdirSync} from 'node:fs';
 import {join} from 'node:path';
+import {hasStructuredSubmission} from '../src/lib/structured-submission.mjs';
 import {reviewSubmission,formatReview,parseLegacySubmissionIssue} from '../src/lib/submission-review.mjs';
 
 const event=JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8'));
 const issue=event.issue;
 if(!issue||issue.pull_request||!(/^(\[MCP Submission\]|Add:)/i.test(issue.title||''))){console.log('Not an MCP submission issue; skipping');process.exit(0);}
 const existing=readdirSync('src/data/servers').filter(f=>f.endsWith('.json')).map(f=>JSON.parse(readFileSync(join('src/data/servers',f),'utf8')));
-const legacy=/^Add:/i.test(issue.title||'');
+const legacy=/^Add:/i.test(issue.title||'')&&!hasStructuredSubmission(issue.body);
 const review=legacy?null:reviewSubmission(issue.body||'',existing);
 const legacyFields=legacy?parseLegacySubmissionIssue(issue.body||''):null;
 const body=legacy

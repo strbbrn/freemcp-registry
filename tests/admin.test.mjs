@@ -1142,3 +1142,100 @@ test('first UltraTransfer candidate retains normalized documentation and evidenc
   assert.equal(published.details.documentationUrl,primary);
   assert.deepEqual(published.details.tools,initial.details.tools);
 });
+
+test('structured issues initialize the full canonical admin candidate and retain the exact candidate on save', async t=>{
+  const {config}=fixture(t);
+  const {composeSubmission}=await import('../src/lib/structured-submission.mjs');
+  const {candidateEditorState}=await import('../lib/admin/submissions.js');
+  const submitted=candidate('structured-candidate','https://github.com/example/submitted/tree/main/implementations/notes');
+  submitted.details.tools=Array.from({length:30},(_,i)=>({name:'tool_'+i,description:'Test inventory entry '+i}));
+  submitted.details.documentationUrls=['https://example.org/more'];
+  submitted.details.serviceDependencies=['Synthetic API'];
+  const issue=composeSubmission(submitted);
+  t.mock.method(globalThis,'fetch',async (path,opts)=>{
+    assert.equal(opts.method,'GET');
+    if(path.endsWith('/issues/72'))return Response.json({number:72,title:issue.title,body:issue.body,state:'open'});
+    if(path.endsWith('/issues/73'))return Response.json({number:73,title:issue.title,body:issue.body.replace('submission:v1','submission:v9'),state:'open'});
+    if(path.endsWith('/commits/main'))return Response.json({sha:'c'.repeat(40)});
+    assert.equal(new URL(path).pathname,'/repos/example/submitted');
+    return Response.json({full_name:'example/submitted',id:110,default_branch:'main'});
+  });
+  const evidence=await submission(72,{config});
+  const prepared=await candidateEditorState(config,evidence,null);
+  assert.deepEqual(prepared.candidate,evidence.structuredCandidate);
+  assert.equal(prepared.candidate.details.tools.length,30);
+  assert.equal(prepared.candidate.github_url,submitted.github_url);
+  await reviewAction(config,'12345',72,{action:'save-candidate',listingForm:'yes',reason,version:await version(null),fingerprint:evidence.fingerprint});
+  const saved=await reviewRow(config.db,72);
+  const {candidate:stored}=await candidateEditorState(config,evidence,saved);
+  const {review,...details}=stored.details;
+  assert.deepEqual(details,prepared.candidate.details);
+  assert.deepEqual(review,{status:'pending-publication',issue:72,source:'approved-submission'});
+  await assert.rejects(()=>submission(73,{config}),{status:422});
+});
+
+test('public duplicate check sees published repositories and endpoints only and limits requests', async t=>{
+  const {config}=fixture(t);
+  const {onRequest}=await import('../functions/api/submission-duplicates.js');
+  const hidden=await editServer(config,'12345',null,{...candidate('secret-draft','https://github.com/example/hidden'),action:'create',reason});
+  const publicConfig=candidate('visible-server','https://github.com/example/visible');
+  publicConfig.details.transport='http';
+  publicConfig.details.installations=[{title:'Remote fixture',config:{url:'https://mcp.example.org/path',type:'http'}}];
+  const row=await editServer(config,'12345',null,{...publicConfig,action:'create',reason});
+  await editServer(config,'12345',row.id,{action:'publish',version:await version(row),confirm:'yes',reason});
+  const check=(data,ip='192.0.2.44',env={DB:config.db})=>onRequest({env,request:new Request('https://freemcp.in/api/submission-duplicates',{
+    method:'POST',headers:{'Content-Type':'application/json',Origin:'https://freemcp.in','CF-Connecting-IP':ip},
+    body:JSON.stringify({repository:'https://github.com/example/unknown',implementationKey:'',endpoints:[],...data}),
+  })});
+  assert.deepEqual(await (await check({repository:hidden.github_url})).json(),{match:false});
+  assert.deepEqual(await (await check({repository:row.github_url.toUpperCase().replace('HTTPS','https')})).json(),{match:true});
+  assert.deepEqual(await (await check({repository:row.github_url,implementationKey:'another-implementation'})).json(),{match:false});
+  assert.deepEqual(await (await check({endpoints:['https://mcp.example.org/path/']})).json(),{match:true});
+  assert.equal((await check({},'192.0.2.45',{})).status,503);
+  for(let i=0;i<6;i++) await check({});
+  assert.equal((await check({})).status,429);
+});
+
+test('distinct monorepo paths do not collide in admin or public checks',async t=>{
+  const {config}=fixture(t);
+  const {onRequest}=await import('../functions/api/submission-duplicates.js');
+  const base='https://github.com/example/workspace/tree/main/packages/';
+  const first=candidate('monorepo-one',base+'Search');
+  first.details.implementationKey='search';
+  const second={...first,id:'monorepo-two',github_url:base+'search'};
+  const {prepareImport}=await import('../lib/admin/servers.js');
+  const imported=await prepareImport(config.db,JSON.stringify([first,second]));
+  assert.deepEqual(imported.map(entry=>entry.row?.github_url),[first.github_url,second.github_url]);
+  const row=await editServer(config,'12345',null,{...first,action:'create',reason});
+  await editServer(config,'12345',row.id,{action:'publish',version:await version(row),confirm:'yes',reason});
+  const check=repository=>onRequest({env:{DB:config.db},request:new Request('https://freemcp.in/api/submission-duplicates',{
+    method:'POST',headers:{'Content-Type':'application/json',Origin:'https://freemcp.in','CF-Connecting-IP':'192.0.2.101'},
+    body:JSON.stringify({repository,implementationKey:'search',endpoints:[]}),
+  })}).then(response=>response.json());
+  assert.deepEqual(await check('https://github.com/EXAMPLE/WORKSPACE.GIT/tree/main/packages/Search'),{match:true});
+  assert.deepEqual(await check(second.github_url),{match:false});
+  const another=await editServer(config,'12345',null,{...second,action:'create',reason});
+  assert.equal(another.github_url,second.github_url);
+  assert.deepEqual(await check(second.github_url),{match:false});
+  await assert.rejects(()=>editServer(config,'12345',null,{...first,id:'another-copy',action:'create',reason}),/already listed/);
+});
+
+test('duplicate checks bound bodies and endpoint count before querying and redact storage failures',async()=>{
+  const {onRequest}=await import('../functions/api/submission-duplicates.js');
+  const data={repository:'https://github.com/example/test',implementationKey:'',endpoints:[]};
+  let queries=0;
+  const env={DB:{prepare(){queries++;throw Error('internal failure with private listing details');}}};
+  const request=(payload,headers={})=>onRequest({env,request:new Request('https://freemcp.in/api/submission-duplicates',{
+    method:'POST',headers:{'Content-Type':'application/json',Origin:'https://freemcp.in','CF-Connecting-IP':'192.0.2.102',...headers},
+    body:JSON.stringify(payload),
+  })});
+  assert.equal((await request(data,{Origin:'https://example.org'})).status,403);
+  assert.equal((await request(data,{'Content-Type':'text/plain'})).status,415);
+  assert.equal((await request({...data,repository:'x'.repeat(12*1024)})).status,413);
+  assert.equal((await request({...data,endpoints:Array(13).fill('https://example.org/mcp')})).status,400);
+  assert.equal(queries,0);
+  const unavailable=await request(data);
+  assert.equal(unavailable.status,503);
+  assert.deepEqual(await unavailable.json(),{error:'Duplicate check unavailable.'});
+  assert.equal(queries,1);
+});

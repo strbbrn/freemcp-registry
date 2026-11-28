@@ -30,3 +30,34 @@ test('Legacy submission is recognized as legacy evidence only',async()=>{
  assert.equal(parseLegacySubmissionIssue(legacy).Name,'Example');
  assert.equal(reviewSubmission(legacy).recognized,false);
 });
+
+test('direct GitHub template carries extended listing fields into the admin candidate', async()=>{
+ const {readFileSync}=await import('node:fs');
+ const {normalizedSubmission}=await import('../lib/admin/submission-candidate.js');
+ const template=readFileSync('.github/ISSUE_TEMPLATE/submit-server.md','utf8');
+ const templateBody=template.slice(template.indexOf('## MCP server submission'))
+   .replace('### Maintainer\nNot supplied','### Maintainer\nMaintainer example')
+   .replace('### Overview\nNot supplied','### Overview\nExtended overview')
+   .replace('### Tags\nNot supplied','### Tags\n- local\nreference')
+   .replace('### Transport\nunknown','### Transport\nstdio')
+   .replace('### Additional transports\nNot supplied','### Additional transports\nhttp, sse')
+   .replace('### Documentation\nNot supplied','### Documentation\nhttps://example.org/docs')
+   .replace('### Additional documentation URLs\nNot supplied','### Additional documentation URLs\nhttps://example.org/security')
+   .replace('### Permissions / security considerations\nNot supplied','### Permissions / security considerations\nRead-only access to local files.')
+   .replace('### Pricing\nNot supplied','### Pricing\nFree locally')
+   .replace('### Service dependencies\nNot supplied','### Service dependencies\n- Optional hosted service')
+   .replace('### Implementation key\nNot supplied','### Implementation key\nlocal-server');
+ const parsed=parseSubmissionIssue(templateBody);
+ assert.ok(reviewSubmission(templateBody).passed);
+ const candidate=normalizedSubmission(parsed);
+ assert.equal(candidate.author,'Maintainer example');
+ assert.deepEqual(candidate.tags,['local','reference']);
+ const {details}=candidate;
+ assert.equal(details.summary,'Extended overview');
+ assert.deepEqual(details.transports,['stdio','http','sse']);
+ assert.deepEqual(details.documentationUrls,['https://example.org/security']);
+ assert.deepEqual(details.security,['Read-only access to local files.']);
+ assert.equal(details.pricing,'Free locally');
+ assert.deepEqual(details.serviceDependencies,['Optional hosted service']);
+ assert.equal(details.implementationKey,'local-server');
+});

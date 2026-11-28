@@ -1,10 +1,14 @@
-import {parseRepository,secretPattern,securityHints,validateDocumentationUrl} from './submission.mjs';
+import { hasStructuredSubmission, readStructuredSubmission } from './structured-submission.mjs';
+import {implementationRepository,parseRepository,secretPattern,securityHints,validateDocumentationUrl} from './submission.mjs';
 
 const sectionNames=['Repository','Name','Category','Description','Transport','Documentation','Installation evidence / instructions','Permissions / security considerations'];
 const enrichmentSections=['Documented tools','Setup prerequisites'];
+const optionalSections=['Maintainer','Overview','Tags','Additional transports','Additional documentation URLs','Pricing','Service dependencies','Implementation key'];
 const categories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
 const transports=['stdio','http','sse','unknown'];
 export function parseSubmissionIssue(body){
+ const structured=readStructuredSubmission(body);
+ if(structured)return structured.error?null:structured.fields;
  if(typeof body!=='string'||body.length>65000||!body.startsWith('## MCP server submission\n'))return null;
  const sections=new Map();
  for(const match of body.matchAll(/^### ([^\n]+)\n([\s\S]*?)(?=\n### |$(?![\s\S]))/gm)){
@@ -12,9 +16,27 @@ export function parseSubmissionIssue(body){
   sections.set(match[1],match[2].trim());
  }
  if(!sectionNames.every(key=>sections.has(key)))return null;
- return Object.fromEntries([...sectionNames,...enrichmentSections].map(key=>[key,sections.get(key)||'Not supplied']));
+ return Object.fromEntries([...sectionNames,...enrichmentSections,...optionalSections.filter(key=>sections.has(key))].map(key=>[key,sections.get(key)||'Not supplied']));
 }
 export function reviewSubmission(body,existing=[]){
+ const structured=readStructuredSubmission(body);
+ if(structured){
+  if(structured.error)return {recognized:true,passed:false,findings:[structured.error],warnings:[]};
+  const repository=structured.candidate.github_url;
+  const key=value=>{
+   const {root,path}=implementationRepository(value);
+   return root.toLowerCase()+path;
+  };
+  const matches=existing.some(item=>{
+   try {
+    return key(item.githubUrl||item.repository)===key(repository)&&
+     (item.details?.implementationKey??'')===(structured.candidate.details.implementationKey??'');
+   } catch { return false; }
+  });
+  return {recognized:true,passed:!matches,findings:matches?['Possible duplicate repository in checked registry snapshot']:[],
+   warnings:[...structured.warnings,'D1 duplicate check, ownership, licensing and MCP compatibility require maintainer verification'],repository};
+ }
+
  const fields=parseSubmissionIssue(body);
  if(!fields)return {recognized:false,passed:false,findings:['Submission format not recognized']};
  const findings=[],warnings=[];
@@ -54,7 +76,7 @@ export function formatReview(result){
 }
 
 export function parseLegacySubmissionIssue(body){
- if(typeof body!=='string'||body.length>65000||!body.startsWith('## Server Details\n'))return null;
+ if(hasStructuredSubmission(body)||typeof body!=='string'||body.length>65000||!body.startsWith('## Server Details\n'))return null;
  const field=label=>body.match(new RegExp('\\*\\*'+label+':\\*\\*\\s*([^\\n]+)','i'))?.[1]?.trim()||'';
  const Name=field('Server Name'),Repository=field('GitHub Repository URL'),Description=field('Short Description'),Category=field('Category');
  if(!Name||!Repository||!Description||!Category)return null;
