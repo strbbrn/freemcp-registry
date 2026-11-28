@@ -29,6 +29,10 @@ for (const width of [320,360,390,414,768,1024,1280,1440]) {
             installations:[{title:long,notes:long,config:{servers:{fixture:{url:'https://example.org/'+long}},arguments:['--local','--test']}}]}:{})},
       };
       await page.setContent(renderListing(record),{waitUntil:'domcontentloaded'});
+      if (width===320) {
+        // A wider fallback font previously pushed the header past the viewport.
+        await page.addStyleTag({content:'.site-header .nav,.site-header button{font-family:"DejaVu Sans",sans-serif}'});
+      }
       await expect(page.locator('#more-documentation a')).toHaveText(fixture.links);
       expect(await page.locator('#more-documentation a').evaluateAll(links=>links.map(a=>a.getAttribute('href')))).toEqual(fixture.links);
       await expect(page.locator('#tools .tool-item')).toHaveCount(fixture.tools);
