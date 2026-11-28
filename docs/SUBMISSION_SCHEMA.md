@@ -1,4 +1,6 @@
-# FreeMCP 2.0 — freemcp.json v1
+# FreeMCP submission JSON
+
+## Repository manifest (freemcp.json v1)
 
 Maintainers may place an optional `freemcp.json` in the **root** of a public GitHub repository. The submission form reads this file, validates its fields, and offers prefilled values for a **human-reviewed GitHub issue**. It does not execute installation commands or automatically publish entries.
 
@@ -42,7 +44,9 @@ The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/fre
   "category": "Development",
   "transport": "http",
   "installation": {"endpoint": "https://mcp.example.com/mcp"},
-  "permissions": ["Network access"]
+  "tools": [{"name": "search", "description": "Search example resources"}],
+  "prerequisites": ["A client that supports Streamable HTTP"],
+  "permissions": ["Sends search queries to the example service over HTTPS", "Provides read-only access to example resources"]
 }
 ```
 
@@ -61,11 +65,11 @@ The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/fre
 
 ## Review process
 
-1. Open `/submit` on FreeMCP Preview.
-2. Enter the public GitHub repository URL and click **Analyze GitHub repository**.
-3. Inspect imported metadata, documentation, installation and security flags.
-4. Confirm the details and open a prefilled GitHub issue for human review.
-5. FreeMCP maintainers approve or reject; no automatic publication occurs.
+1. Open the [submission wizard](https://freemcp.in/submit/).
+2. Enter a public GitHub repository URL. To use a root manifest, click **Analyze GitHub repository**, then **Fill untouched fields**.
+3. Review the listing details and open **Preview listing**. Add the documentation, installation, and security details you can verify.
+4. Continue to submission and review the generated issue on GitHub. For a large issue, copy the title and body into GitHub.
+5. Maintainers review the issue and approve the listing before publication.
 
 The manifest is a metadata contract, not an executable configuration or security certification. Do not include passwords, tokens, private keys or other secrets.
 
@@ -81,7 +85,7 @@ Open [the submission wizard](https://freemcp.in/submit/) to start from a reposit
 | `details.summary`, `details.pricing`, `details.implementationKey` | Overview up to 1,200 characters, pricing 800, optional lowercase hyphenated implementation key 100 |
 | `details.documentationUrl`, `details.documentationUrls` | Primary and up to 12 additional HTTPS URLs, up to 2,048 characters each |
 | `details.transport`, `details.transports` | Primary transport and up to three distinct choices from `stdio`, `http`, and `sse`. An unknown transport can be submitted for review |
-| `details.installations` | Up to 20 entries with `title`, optional `client`, `os`, `notes`, `transport`, and `config`. Preserve imported v1 variable declarations in `environment`. Use placeholders such as `${API_KEY}` in actual client configurations |
+| `details.installations` | Up to 20 entries with required `title` and `config`, plus optional `client`, `os`, `notes`, and `transport`. Preserve imported v1 variable declarations in `environment`. Use placeholders such as `${API_KEY}` in client configurations |
 | `details.endpoints` | Up to 20 HTTPS endpoints with `transport` and `url` |
 | `details.tools` | Up to 80 entries with a unique `name` and a `description`, limited to 100 and 500 characters respectively |
 | `details.prerequisites`, `details.security`, `details.serviceDependencies` | Up to 30 prerequisites, 30 security considerations, and 20 dependencies, each up to 500 characters |
@@ -91,6 +95,76 @@ The wizard rejects administrative, review, lifecycle, publication, and claimed G
 The website generates a public GitHub issue with readable headings and one `Structured listing (v1)` JSON block. Keep the generated section and its delimiters intact. A malformed or conflicting block stops structured ingestion. The direct GitHub template also accepts optional maintainer, overview, tags, extra documentation and transports, pricing, dependencies and an implementation key. Use the website to attach structured client configurations and endpoints. GitHub sign-in and a final GitHub submission action are required. Opening the page creates no issue.
 
 On an encoded handoff URL above 7,000 characters, use the copy controls or download the complete issue Markdown and paste the title and body on GitHub. This leaves room below common 8 KiB proxy request-target limits. The wizard also caps the complete issue at 65,000 characters, just below GitHub's body limit. If it is too large even for manual paste, export the listing JSON to keep all fields and reduce the submitted text. No tools or configurations are silently truncated.
+
+### Complete listing JSON example
+
+Paste this example into **Upload or paste JSON** to try the wizard. Replace the example repository, endpoints, commands, and claims before submitting a real project. Use `details.security` in listing JSON and `permissions` in a root v1 manifest.
+
+```json
+{
+  "id": "example-project-notes",
+  "name": "Project Notes MCP",
+  "description": "Search project notes and retrieve references.",
+  "category": "Productivity",
+  "author": "Example Project",
+  "github_url": "https://github.com/example/project-notes",
+  "tags": ["notes", "search"],
+  "details": {
+    "summary": "Search a local notes folder or an optional hosted index.",
+    "documentationUrl": "https://example.org/project-notes/setup",
+    "documentationUrls": ["https://example.org/project-notes/security"],
+    "transport": "stdio",
+    "transports": ["stdio", "http"],
+    "installations": [
+      {
+        "title": "Local notes folder",
+        "client": "Generic MCP client",
+        "os": "Linux and macOS",
+        "transport": "stdio",
+        "notes": "Install the example executable and point it at a read-only notes folder.",
+        "config": {
+          "mcpServers": {
+            "notes": {
+              "command": "project-notes",
+              "args": ["--folder", "/path/to/notes"]
+            }
+          }
+        }
+      },
+      {
+        "title": "Optional hosted index",
+        "client": "Client with Streamable HTTP support",
+        "transport": "http",
+        "notes": "Set the authorization header in your client.",
+        "config": {
+          "mcpServers": {
+            "notes": {
+              "type": "http",
+              "url": "https://mcp.example.org/project-notes",
+              "headers": {"Authorization": "${AUTHORIZATION}"}
+            }
+          }
+        }
+      }
+    ],
+    "endpoints": [
+      {"transport": "http", "url": "https://mcp.example.org/project-notes"}
+    ],
+    "tools": [
+      {"name": "search_notes", "description": "Find notes by phrase or tag."},
+      {"name": "get_note", "description": "Read a matching note by ID."}
+    ],
+    "prerequisites": ["A local notes folder or an account for the optional hosted index"],
+    "security": [
+      "The local setup reads only the configured folder and makes no outbound requests.",
+      "The hosted setup sends search queries to the index over HTTPS and requires authentication."
+    ],
+    "pricing": "Free local setup. The optional hosted index may require a paid account.",
+    "serviceDependencies": ["Optional Example Project hosted index"],
+    "implementationKey": "project-notes"
+  }
+}
+```
 
 ### Preview acceptance checklist
 

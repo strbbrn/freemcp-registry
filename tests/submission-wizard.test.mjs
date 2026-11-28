@@ -1,10 +1,23 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { validateCandidate, importCandidate, parseCandidateJson } from '../src/lib/submission-candidate.mjs';
 import { composeSubmission, prefillUrlLimit, readStructuredSubmission } from '../src/lib/structured-submission.mjs';
 import { parseSubmissionIssue, reviewSubmission } from '../src/lib/submission-review.mjs';
 import { analyzeRepository } from '../src/lib/repository-analysis.mjs';
 import { renderListing } from '../lib/listing-renderer.js';
+
+test('all documented submission examples validate and survive GitHub handoff',()=>{
+  const guide=readFileSync(new URL('../docs/SUBMISSION_SCHEMA.md',import.meta.url),'utf8');
+  const examples=[...guide.matchAll(/^```json\n([\s\S]+?)^\x60{3}$/gm)];
+  assert.equal(examples.length,3);
+  for(const [,json] of examples) {
+    const {candidate,errors,warnings}=importCandidate(json);
+    assert.deepEqual(errors,[]);
+    assert.deepEqual(warnings,[]);
+    assert.deepEqual(readStructuredSubmission(composeSubmission(candidate).body).candidate,candidate);
+  }
+});
 
 const endpoint='https://mcp.example.org/mcp';
 function example(count=2) {
