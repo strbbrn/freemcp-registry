@@ -134,5 +134,5 @@ test('preview shares listing tools and configs while omitting external resources
   assert.match(draft,/Unpublished submission preview — not verified by FreeMCP/);
   assert.match(draft,/data-theme="light"/);
   assert.match(draft,/Supported transports/);
-  assert.doesNotMatch(draft,/<script\b|<(?:img|link)\b|href=|data-detail-promo=|application\/ld\+json/);
+  assert.doesNotMatch(draft,/<script\b|<(?:img|link)\b|href="(?!about:srcdoc#)|data-detail-promo=|application\/ld\+json/);
 });

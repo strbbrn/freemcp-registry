@@ -43,7 +43,7 @@ for(const width of [320,360,390,768,1440]) {
     await expect(frame.getByText('Unpublished submission preview — not verified by FreeMCP.')).toBeVisible();
     await expect(frame.locator('#tools .tool-item')).toHaveCount(count);
     await expect(frame.getByText(edited.description,{exact:true})).toBeVisible();
-    await expect(frame.locator('script, img, [data-detail-promo], [href], link[rel=canonical]')).toHaveCount(0);
+    await expect(frame.locator('script, img, [data-detail-promo], [href]:not([href^="about:srcdoc#"]), link[rel=canonical]')).toHaveCount(0);
     await expect(page.locator('#listing-preview')).toHaveAttribute('sandbox','');
     const frameLayout=await frame.locator('html').evaluate(root=>{
       const link=root.querySelector('#more-documentation a');
@@ -172,4 +172,23 @@ test('a v1 JSON upload fills the editable listing and its installation',async ({
   await expect(frame.locator('h1')).toHaveText('Uploaded fixture');
   await expect(frame.locator('.install pre')).toContainText('--demo');
   await expect(frame.locator('#tools .tool-item')).toHaveCount(1);
+});
+
+test('mobile preview sticky navigation jumps to local sections without covering their headings',async ({page})=>{
+  await page.setViewportSize({width:390,height:850});
+  await opening(page);
+  await paste(page,candidate(15));
+  await page.getByRole('button',{name:'Preview listing',exact:true}).click();
+  const frame=page.frameLocator('#listing-preview');
+  const nav=frame.getByRole('navigation',{name:'Server page sections'});
+  for (const [label,id] of [['Security','security'],['Install','installation'],['Overview','overview']]) {
+    await nav.getByRole('link',{name:label,exact:true}).click();
+    await expect.poll(()=>frame.locator('#'+id).evaluate(section=>{
+      const bar=document.querySelector('.detail-tabs').getBoundingClientRect();
+      const top=section.getBoundingClientRect().top;
+      return location.hash==='#'+section.id && bar.top>=-1 && top>=bar.bottom-1 && top<innerHeight;
+    })).toBe(true);
+  }
+  expect(new URL(page.url()).hash).toBe('');
+  await expect(frame.locator('a[href]:not([href^="about:srcdoc#"])')).toHaveCount(0);
 });

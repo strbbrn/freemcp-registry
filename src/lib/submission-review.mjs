@@ -3,6 +3,7 @@ import {parseRepository,secretPattern,securityHints,validateDocumentationUrl} fr
 
 const sectionNames=['Repository','Name','Category','Description','Transport','Documentation','Installation evidence / instructions','Permissions / security considerations'];
 const enrichmentSections=['Documented tools','Setup prerequisites'];
+const optionalSections=['Maintainer','Overview','Tags','Additional transports','Additional documentation URLs','Pricing','Service dependencies','Implementation key'];
 const categories=['Development','Database','Security','Search','Productivity','Communication','Cloud','Utilities','Other'];
 const transports=['stdio','http','sse','unknown'];
 export function parseSubmissionIssue(body){
@@ -15,7 +16,7 @@ export function parseSubmissionIssue(body){
   sections.set(match[1],match[2].trim());
  }
  if(!sectionNames.every(key=>sections.has(key)))return null;
- return Object.fromEntries([...sectionNames,...enrichmentSections].map(key=>[key,sections.get(key)||'Not supplied']));
+ return Object.fromEntries([...sectionNames,...enrichmentSections,...optionalSections.filter(key=>sections.has(key))].map(key=>[key,sections.get(key)||'Not supplied']));
 }
 export function reviewSubmission(body,existing=[]){
  const structured=readStructuredSubmission(body);
