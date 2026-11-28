@@ -80,7 +80,7 @@ test('large payloads preserve the body and fall back below the conservative enco
   assert.equal(large.url,null);
   assert.equal(readStructuredSubmission(large.body).candidate.details.tools.length,80);
   draft.details.installations[0].config.custom='x'.repeat(30000);
-  assert.throws(()=>composeSubmission(draft),/exceeds GitHub/);
+  assert.throws(()=>composeSubmission(draft),/GitHub issue body is too large/);
 });
 
 test('invalid, ambiguous and conflicting structured issue payloads do not fall back to the human fields',()=>{
@@ -168,4 +168,55 @@ test('preview shares listing tools and configs while omitting external resources
   assert.match(draft,/data-theme="light"/);
   assert.match(draft,/Supported transports/);
   assert.doesNotMatch(draft,/<script\b|<(?:img|link)\b|href="(?!about:srcdoc#)|data-detail-promo=|application\/ld\+json/);
+});
+
+test('repository implementation URLs survive analysis, issue handoff and triage',async()=>{
+  const candidate=example();
+  candidate.github_url='https://github.com/example/workspace/tree/main/packages/Search';
+  candidate.details.implementationKey='search';
+  const distinct='https://github.com/example/workspace/tree/main/packages/search';
+  const analyzed=await analyzeRepository(candidate.github_url,'',{fetcher:async target=>{
+    assert.equal(new URL(target).pathname,'/repos/example/workspace');
+    return Response.json({name:'Monorepo',default_branch:'main',stargazers_count:5});
+  }});
+  assert.equal(analyzed.fields.github_url,candidate.github_url);
+  assert.equal(analyzed.fields.details.documentationUrl,candidate.github_url);
+  assert.equal(analyzed.sourceUrl,candidate.github_url);
+  const issue=composeSubmission(candidate,analyzed);
+  assert.equal(readStructuredSubmission(issue.body).candidate.github_url,candidate.github_url);
+  assert.equal(readStructuredSubmission(issue.body).candidate.details.implementationKey,'search');
+  assert.doesNotMatch(issue.body,/packages\/Search\/tree/);
+  assert.equal(reviewSubmission(issue.body,[{githubUrl:distinct,details:{implementationKey:'search'}}]).passed,true);
+  assert.equal(reviewSubmission(issue.body,[{githubUrl:candidate.github_url,details:{implementationKey:'search'}}]).passed,false);
+});
+
+test('compatible imports report ignored stars and reject privileged metadata',()=>{
+  const input={...example(),stars:2147483647};
+  const {candidate,errors,warnings}=importCandidate(JSON.stringify(input));
+  assert.deepEqual(errors,[]);
+  assert.ok(warnings.some(warning=>warning.includes('Ignored imported GitHub stars')));
+  assert.equal(Object.hasOwn(candidate,'stars'),false);
+  assert.deepEqual(candidate.details.tools,input.details.tools);
+  assert.deepEqual(candidate.details.installations.map(item=>item.config),input.details.installations.map(item=>item.config));
+  assert.equal(validateCandidate(input).errors.length,1);
+  for(const key of ['review','lifecycle','publication','audit','githubMetadata']) {
+    assert.ok(importCandidate(JSON.stringify({...input,details:{...input.details,[key]:{}}})).errors.length);
+  }
+});
+
+test('Unicode and JSON escapes are counted in the exact GitHub issue body boundary',async()=>{
+  const {issueBodyLimit}=await import('../src/lib/submission-candidate.mjs');
+  const {IssueBodyTooLargeError}=await import('../src/lib/structured-submission.mjs');
+  const draft=example(1);
+  const config=draft.details.installations[0].config;
+  const sample='💡<>`"\\'.repeat(1200);
+  config.example=sample;
+  const measured=composeSubmission(draft).body.length;
+  config.example=sample+'x'.repeat(issueBodyLimit-measured);
+  const exact=composeSubmission(draft);
+  assert.equal(exact.body.length,issueBodyLimit);
+  assert.equal(exact.url,null);
+  assert.equal(readStructuredSubmission(exact.body).candidate.details.installations[0].config.example,config.example);
+  config.example+='x';
+  assert.throws(()=>composeSubmission(draft),IssueBodyTooLargeError);
 });

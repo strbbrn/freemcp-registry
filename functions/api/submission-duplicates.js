@@ -1,4 +1,4 @@
-import { body } from '../../lib/admin/http.js';
+import { AdminError, body } from '../../lib/admin/http.js';
 import { publishedCollision } from '../../lib/admin/duplicates.js';
 import { isSlug } from '../../lib/registry.js';
 import { object } from '../../lib/admin/validation.js';
@@ -7,6 +7,8 @@ import { canonicalRepository, submissionUrl } from '../../src/lib/submission-can
 // Best-effort per-isolate guard. It stores only a bounded table of short-lived
 // request counters and never persists a draft, endpoint or repository.
 const quotas=new Map();
+const bodyLimit=12*1024;
+const endpointLimit=12;
 function allow(address,now=Date.now()) {
   for (const [key,quota] of quotas) if (quota.expires<=now) quotas.delete(key);
   const prior=quotas.get(address);
@@ -26,14 +28,20 @@ export async function onRequest({request,env}) {
   if (!env.DB) return json({error:'Duplicate check unavailable.'},503);
   let row;
   try {
-    const input=await body(request);
+    if (request.headers.get('Content-Type')?.split(';')[0]?.toLowerCase()!=='application/json') {
+      return json({error:'Send a JSON object.'},415);
+    }
+    const input=await body(request,{max:bodyLimit});
     if (!object(input)||Object.keys(input).some(key=>!['repository','implementationKey','endpoints'].includes(key))||
         typeof input.implementationKey!=='string'||input.implementationKey.length>100||
-        (input.implementationKey&&!isSlug(input.implementationKey))||!Array.isArray(input.endpoints)||input.endpoints.length>40) throw Error();
-    const endpoints=input.endpoints.map(value=>({url:submissionUrl(value,'endpoint')}));
+        (input.implementationKey&&!isSlug(input.implementationKey))||!Array.isArray(input.endpoints)||input.endpoints.length>endpointLimit) throw Error();
+    const endpoints=[...new Set(input.endpoints.map(value=>submissionUrl(value,'endpoint')))].map(url=>({url}));
     row={id:'',github_url:canonicalRepository(input.repository),
       details_json:JSON.stringify({implementationKey:input.implementationKey,endpoints})};
-  } catch { return json({error:'Invalid duplicate check.'},400); }
+  } catch(error) {
+    if (error instanceof AdminError&&error.status===413) return json({error:'Duplicate check exceeds the request limit.'},413);
+    return json({error:'Invalid duplicate check.'},400);
+  }
   try { return json({match:Boolean(await publishedCollision(env.DB,row))}); }
   catch { return json({error:'Duplicate check unavailable.'},503); }
 }

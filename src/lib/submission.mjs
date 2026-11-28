@@ -1,6 +1,20 @@
 export const secretPattern=/(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|secret[_-]?key|password)\s*[:=]\s*["']?[A-Za-z0-9_+/.=-]{12,})/i;
 export function securityHints(value){const flags=[];const text=value.toLowerCase();if((text.includes('curl ')&&text.includes('| bash'))||(text.includes('wget ')&&text.includes('| sh')))flags.push('Remote shell installation requires manual review');if(text.includes('sudo ')||text.includes('chmod 777')||text.includes('--privileged'))flags.push('Elevated privileges or broad filesystem permissions mentioned');if(text.includes('rm -rf')||text.includes('invoke-expression'))flags.push('Potentially destructive or dynamic command mentioned');return flags;}
 export function parseRepository(value){const url=new URL(value.trim());const parts=url.pathname.split('/').filter(Boolean);if(url.username||url.password||url.protocol!=='https:'||url.hostname.toLowerCase()!=='github.com'||parts.length!==2||!parts.every(p=>/^[a-zA-Z0-9_.-]+$/.test(p)))throw new Error('Invalid GitHub repository URL');return {url,owner:parts[0],repo:parts[1]};}
+// Keep a listing's tree/blob path distinct from the root used by GitHub APIs.
+export function implementationRepository(value) {
+ const input=typeof value==='string'?value.trim():'';
+ const match=input.match(/^https:\/\/github\.com\/([A-Za-z0-9_.-]+)\/([A-Za-z0-9_.-]+)((?:\/[A-Za-z0-9_.@+-]+)*)\/?$/i);
+ const invalid=()=>{throw new Error('Use a GitHub repository URL or a tree/blob URL for a specific implementation.');};
+ if (!match||input.length>2048) invalid();
+ const [,owner,repository,suffix]=match;
+ const repo=repository.replace(/\.git$/i,'');
+ const segments=suffix?suffix.slice(1).split('/'):[];
+ if (!repo||[owner,repo,...segments].some(part=>part==='.'||part==='..')||
+     (segments.length&&(!['tree','blob'].includes(segments[0])||segments.length<3))) invalid();
+ const root='https://github.com/'+owner+'/'+repo;
+ return {owner,repo,root,url:root+suffix,path:suffix};
+}
 export function readmeHeadings(readme){return readme.split('\n').map(line=>line.trim()).filter(line=>/^#{1,4}\s+/.test(line)).map(line=>line.replace(/^#+\s+/,'').slice(0,80)).slice(0,24).filter(h=>/install|setup|configur|permission|security|tool|usage/i.test(h));}
 export function permissionLines(items){return items.join('\n');}
 export function issueContent(fields,flags){const entries=[['Repository',fields.repository],['Name',fields.name],['Category',fields.category],['Description',fields.description],['Transport',fields.transport],['Documentation',fields.docs||'Not supplied'],['Installation evidence / instructions',fields.installation||'Not supplied'],['Permissions / security considerations',fields.permissions||'Not supplied'],['Documented tools',fields.tools||'Not supplied'],['Setup prerequisites',fields.prerequisites||'Not supplied'],['Automated review flags (unverified)',flags.length?flags.join('; '):'No flags from limited heuristic checks; manual security review required']];return '## MCP server submission\n\n'+entries.map(([key,v])=>'### '+key+'\n'+v).join('\n\n')+'\n\n### Maintainer confirmation\nI confirm I am authorized to submit this listing and have not included credentials.\n\n### Review checklist (FreeMCP maintainers)\n- [ ] Confirm repository and ownership claims\n- [ ] Review documentation and installation commands\n- [ ] Check permissions, security concerns, and spam\n- [ ] Validate compatibility claims before publication\n- [ ] Approve or reject submission';}

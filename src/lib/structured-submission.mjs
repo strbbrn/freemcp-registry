@@ -1,5 +1,5 @@
 import { issueBodyLimit, parseCandidateJson, validateCandidate } from './submission-candidate.mjs';
-import { issueContent } from './submission.mjs';
+import { implementationRepository, issueContent } from './submission.mjs';
 
 export const issueCreationUrl='https://github.com/strbbrn/freemcp-registry/issues/new';
 // Leave headroom beneath an 8 KiB request-target limit used by common proxies.
@@ -26,20 +26,28 @@ const previewFields = candidate => {
 export const hasStructuredSubmission = body => typeof body==='string'&&(
   body.includes(marker) || body.includes('<!-- /freemcp:submission') || /^### Structured listing\b/m.test(body));
 
+export class IssueBodyTooLargeError extends Error {
+  constructor() {
+    super('The GitHub issue body is too large. Download the complete JSON to keep a copy, then shorten the submission before previewing it again.');
+  }
+}
+
 export function composeSubmission(input, evidence) {
   const {candidate,errors,warnings}=validateCandidate(input);
   if (errors.length) throw new Error(errors[0].message);
   const fields=previewFields(candidate);
   const title='[MCP Submission] '+candidate.name.replace(/[\r\n\t]+/g,' ');
   const branch=evidence?.branch;
+  const repository=implementationRepository(candidate.github_url);
   const source=typeof branch==='string'&&/^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(branch)
-    ? '\n\n### Analyzed source (unverified)\n'+candidate.github_url+'/tree/'+branch.split('/').map(encodeURIComponent).join('/')
+    ? '\n\n### Analyzed source (unverified)\n'+(repository.path?repository.url:
+      repository.root+'/tree/'+branch.split('/').map(encodeURIComponent).join('/'))
     :'';
 
   const flags=Array.isArray(evidence?.flags)?evidence.flags.filter(flag=>typeof flag==='string'&&/^[\w .;,-]{1,155}$/.test(flag)).slice(0,12):[];
   const body=issueContent(fields,[...new Set([...warnings,...flags])])+source+'\n\n'+block+'\n'+open+'\n```json\n'+
     encode(candidate)+'\n```\n'+close;
-  if (body.length>issueBodyLimit) throw new Error('This issue exceeds GitHub’s body limit. Export your JSON and reduce the submitted content before opening GitHub.');
+  if (body.length>issueBodyLimit) throw new IssueBodyTooLargeError();
   const url=issueCreationUrl+'?'+new URLSearchParams({title,body});
   return {title,body,url:url.length<=prefillUrlLimit?url:null};
 }

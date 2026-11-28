@@ -327,7 +327,7 @@ Open [the submission wizard](https://freemcp.in/submit/) to start from a reposit
 
 | Listing field | Supported values and limits |
 | --- | --- |
-| `id`, `name`, `description`, `category`, `author`, `github_url` | Lowercase hyphenated ID up to 200 characters, name 120, description 1,200, category 100, maintainer 160, public GitHub repository |
+| `id`, `name`, `description`, `category`, `author`, `github_url` | Lowercase hyphenated ID up to 200 characters, name 120, description 1,200, category 100, maintainer 160, public GitHub repository or implementation tree/blob URL |
 | `tags` | Up to 50 strings of 100 characters |
 | `details.summary`, `details.pricing`, `details.implementationKey` | Overview up to 1,200 characters, pricing 800, optional lowercase hyphenated implementation key 100 |
 | `details.documentationUrl`, `details.documentationUrls` | Primary and up to 12 additional HTTPS URLs, up to 2,048 characters each |
@@ -337,11 +337,23 @@ Open [the submission wizard](https://freemcp.in/submit/) to start from a reposit
 | `details.tools` | Up to 80 entries with a unique `name` and a `description`, limited to 100 and 500 characters respectively |
 | `details.prerequisites`, `details.security`, `details.serviceDependencies` | Up to 30 prerequisites, 30 security considerations, and 20 dependencies, each up to 500 characters |
 
-The wizard rejects administrative, review, lifecycle, publication, and claimed GitHub metadata. Imported configuration is checked but never executed. Credential detection is heuristic. Remove secrets from draft and public issue text. The draft stays in memory. The preview renders locally with section navigation and no external resources. Repository analysis reads only public GitHub files. An optional duplicate check sends only the repository, implementation key, and endpoint URLs to FreeMCP and matches published listings. Maintainers still check private and public records before approval.
+The wizard reports and ignores a top-level `stars` value from candidate JSON. Analyze the repository to show current GitHub metadata in the preview. Review, lifecycle, publication, audit, and other unsupported fields are rejected. Imported configuration is checked but never executed. Credential detection is heuristic. Remove secrets from draft and public issue text. The draft stays in memory. The preview renders locally with section navigation and no external resources. Repository analysis reads only public GitHub files. An optional duplicate check sends only the repository, implementation key, and endpoint URLs to FreeMCP and matches published listings. Maintainers still check private and public records before approval.
 
 The website generates a public GitHub issue with readable headings and one `Structured listing (v1)` JSON block. Keep the generated section and its delimiters intact. A malformed or conflicting block stops structured ingestion. The direct GitHub template also accepts optional maintainer, overview, tags, extra documentation and transports, pricing, dependencies and an implementation key. Use the website to attach structured client configurations and endpoints. GitHub sign-in and a final GitHub submission action are required. Opening the page creates no issue.
 
-On an encoded handoff URL above 7,000 characters, use the copy controls or download the complete issue Markdown and paste the title and body on GitHub. This leaves room below common 8 KiB proxy request-target limits. The wizard also caps the complete issue at 65,000 characters, just below GitHub's body limit. If it is too large even for manual paste, export the listing JSON to keep all fields and reduce the submitted text. No tools or configurations are silently truncated.
+On an encoded handoff URL above 7,000 characters, use the copy controls or download the complete issue Markdown and paste the title and body on GitHub. This leaves room below common 8 KiB proxy request-target limits. The wizard also caps the complete issue at 65,000 characters, just below GitHub's body limit. The wizard checks the generated body before preview, including escaped JSON and Unicode counted in UTF-16 units. If the body exceeds the limit, export the complete listing JSON and shorten the submission. No tools or configurations are silently truncated.
+
+### Repository changes and monorepos
+
+Use the repository root for a standalone project. For a monorepo, enter the URL of the specific implementation, such as `https://github.com/owner/project/tree/main/packages/search-mcp`, and set an implementation key when needed. Listing URLs and duplicate checks preserve the implementation path and its case. GitHub metadata lookup uses the repository root. For an implementation URL, the analyzer offers the implementation link as documentation and skips importing the root manifest and README. Use a manifest or rich JSON specific to your implementation if you want to import its full listing.
+
+Changing the repository refreshes generated IDs and maintainers and removes untouched imports. Keeping edited fields or an explicitly imported ID or maintainer requires confirmation. Review any retained values for the new repository, particularly edits to an imported tool or installation collection. Candidate JSON shares the registry's field and collection limits for supported content. The public wizard applies extra checks for URL credentials, placeholder-only environment variables and headers, and transport consistency. Unsupported extensions are rejected rather than stripped from the listing.
+
+### Optional duplicate checks
+
+The endpoint reads published records and returns a boolean. It accepts a JSON body up to 12 KiB and up to 12 endpoint URLs. A request beyond either limit shows the check as unavailable. Endpoint matching normalizes the request once before comparing it with published records. The work still grows with the published registry.
+
+The current limit is best-effort per Cloudflare isolate, with 10 requests per client per minute and a bounded in-memory table of 1,024 clients. Isolates and regions do not share counters, and cold starts reset them. For stronger edge protection, a Cloudflare WAF rate-limiting rule scoped to POST requests for this endpoint is an option on a managed custom domain, subject to the zone's plan and rule quota. The Cloudflare Workers Rate Limiting binding is another option if supported by the deployment, with counters scoped per Cloudflare location. Neither is configured by this change. [Cloudflare WAF rate limiting](https://developers.cloudflare.com/waf/rate-limiting-rules/) · [Workers Rate Limiting binding](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/)
 
 ### Preview acceptance checklist
 

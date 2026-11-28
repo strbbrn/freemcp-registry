@@ -192,3 +192,115 @@ test('mobile preview sticky navigation jumps to local sections without covering 
   expect(new URL(page.url()).hash).toBe('');
   await expect(frame.locator('a[href]:not([href^="about:srcdoc#"])')).toHaveCount(0);
 });
+
+test('changing repositories regenerates derived identity and asks before retaining manual details',async ({page})=>{
+  await opening(page);
+  const repo=page.getByLabel('GitHub repository URL');
+  const enter=page.getByRole('button',{name:'Continue to listing details'});
+  const back=page.getByRole('button',{name:'Back',exact:true});
+  await repo.fill('https://github.com/first/project');
+  await enter.click();
+  await expect(page.getByLabel('Listing ID')).toHaveValue('first-project');
+  await expect(page.getByLabel('Maintainer')).toHaveValue('first');
+  await page.getByLabel('Server name').fill('My manually entered title');
+  await back.click();
+  await repo.fill('https://github.com/second/project');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await enter.click();
+  await expect(repo).toHaveValue('https://github.com/first/project');
+  await repo.fill('https://github.com/second/project');
+  page.once('dialog',dialog=>dialog.accept());
+  await enter.click();
+  await expect(page.getByLabel('Listing ID')).toHaveValue('second-project');
+  await expect(page.getByLabel('Maintainer')).toHaveValue('second');
+  await expect(page.getByLabel('Server name')).toHaveValue('My manually entered title');
+  await page.getByLabel('Listing ID').fill('custom-name');
+  await page.getByLabel('Maintainer').fill('Custom maintainer');
+  await back.click();
+  await repo.fill('https://github.com/third/project');
+  page.once('dialog',dialog=>dialog.accept());
+  await enter.click();
+  await expect(page.getByLabel('Listing ID')).toHaveValue('custom-name');
+  await expect(page.getByLabel('Maintainer')).toHaveValue('Custom maintainer');
+});
+
+test('rich JSON import ignores stars and clears untouched repository fields on a confirmed switch',async ({page})=>{
+  await opening(page);
+  await paste(page,{...candidate(2),stars:600});
+  await expect(page.getByText('Ignored imported GitHub stars.',{exact:false})).toBeVisible();
+  await page.getByRole('button',{name:'Back',exact:true}).click();
+  await page.getByLabel('GitHub repository URL').fill('https://github.com/second/workspace/tree/main/servers/search');
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Continue to listing details'}).click();
+  await expect(page.getByLabel('Listing ID')).toHaveValue('wizard-fixture');
+  await expect(page.getByLabel('Maintainer')).toHaveValue('Fixture maintainer');
+  await expect(page.getByLabel('Primary documentation URL')).toHaveValue('');
+  for(const name of ['Documented tools','Installation configurations','Security considerations']) {
+    await expect(page.getByText(name+' (0)',{exact:true})).toBeVisible();
+  }
+  await page.getByRole('button',{name:'Advanced JSON',exact:true}).click();
+  const draft=JSON.parse(await page.getByLabel('Listing JSON').inputValue());
+  expect(draft.github_url).toBe('https://github.com/second/workspace/tree/main/servers/search');
+  expect(draft.stars).toBeUndefined();
+});
+
+test('repository switch after manifest analysis retains only confirmed edits and refreshes derived identity',async ({page})=>{
+  await page.route('https://api.github.com/repos/**',async route=>{
+    const url=new URL(route.request().url());
+    if(url.pathname.endsWith('/freemcp.json')) {
+      await route.fulfill({json:{schemaVersion:1,name:'Manifest fixture',description:'Manifest test content',repository:'https://github.com/first/project',
+        category:'Development',transport:'stdio',installation:{command:'fixture',args:[]},
+        tools:[{name:'from_manifest',description:'Test tool'}],permissions:['Manifest security']}});
+    } else if(url.pathname.endsWith('/readme')) await route.fulfill({status:404});
+    else await route.fulfill({json:{name:'Repository',default_branch:'main',stargazers_count:10}});
+  });
+  await opening(page);
+  const repo=page.getByLabel('GitHub repository URL');
+  await repo.fill('https://github.com/first/project');
+  await page.getByRole('button',{name:'Analyze GitHub repository'}).click();
+  await page.getByRole('button',{name:'Fill untouched fields'}).click();
+  await page.getByRole('button',{name:'Continue to listing details'}).click();
+  await page.getByRole('textbox',{name:'Description',exact:true}).fill('Reviewed description');
+  await page.getByRole('button',{name:'Back',exact:true}).click();
+  await repo.fill('https://github.com/second/project');
+  await expect(page.getByRole('button',{name:'Fill untouched fields'})).toBeHidden();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Continue to listing details'}).click();
+  await expect(page.getByLabel('Listing ID')).toHaveValue('second-project');
+  await expect(page.getByLabel('Maintainer')).toHaveValue('second');
+  await expect(page.getByRole('textbox',{name:'Description',exact:true})).toHaveValue('Reviewed description');
+  await expect(page.getByLabel('Server name')).toHaveValue('');
+  await expect(page.getByLabel('Primary documentation URL')).toHaveValue('');
+  for(const name of ['Documented tools','Installation configurations','Security considerations']) {
+    await expect(page.getByText(name+' (0)',{exact:true})).toBeVisible();
+  }
+});
+
+test('oversized GitHub bodies block preview while JSON export remains available',async ({page})=>{
+  await opening(page);
+  const draft=candidate(2);
+  draft.details.installations[0].config.fixture='💡<>`"\\'.repeat(4000);
+  await paste(page,draft);
+  await page.getByRole('button',{name:'Preview listing',exact:true}).click();
+  await expect(page.getByRole('alert')).toContainText('GitHub issue body is too large');
+  await expect(page.locator('#listing-preview')).toBeHidden();
+  const download=page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download JSON',exact:true}).click();
+  expect((await download).suggestedFilename()).toBe('freemcp-candidate.json');
+});
+
+test('editing the repository in Advanced JSON also removes untouched imported fields',async ({page})=>{
+  await opening(page);
+  await paste(page,candidate(2));
+  await page.getByRole('button',{name:'Advanced JSON',exact:true}).click();
+  const field=page.getByLabel('Listing JSON');
+  const updated=JSON.parse(await field.inputValue());
+  updated.github_url='https://github.com/second/replacement';
+  updated.description='Reviewed for the replacement';
+  await field.fill(JSON.stringify(updated));
+  page.once('dialog',dialog=>dialog.accept());
+  await page.getByRole('button',{name:'Structured editor',exact:true}).click();
+  await expect(page.getByRole('textbox',{name:'Description',exact:true})).toHaveValue('Reviewed for the replacement');
+  await expect(page.getByLabel('Server name')).toHaveValue('');
+  await expect(page.getByText('Documented tools (0)',{exact:true})).toBeVisible();
+});

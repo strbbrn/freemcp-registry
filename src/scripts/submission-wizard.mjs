@@ -1,4 +1,5 @@
 import { canonicalRepository, repositoryId, importCandidate, parseCandidateJson, validateCandidate, manifestFields } from '../lib/submission-candidate.mjs';
+import { implementationRepository } from '../lib/submission.mjs';
 import { composeSubmission, issueCreationUrl } from '../lib/structured-submission.mjs';
 import { analyzeRepository } from '../lib/repository-analysis.mjs';
 import { renderListing } from '../../lib/listing-renderer.js';
@@ -64,10 +65,12 @@ export function initSubmissionWizard(form) {
   let frame=$('#listing-preview');
   const viewport=frame.parentElement;
   const analysisOutput=$('#analyze-status'), applyAnalysis=$('#apply-analysis'), sourceLink=$('#analysis-source');
-  const rawConfigs=new Map(), touched=new Set(), imported=new Map();
+  const rawConfigs=new Map(), provenance=new Map();
+  const derivedIdentity=['id','author'];
+  const changedNotice=$('#repository-change');
   let draft={category:'Development',details:{}};
   let stage=0, mode='structured', analysis, analysisAbort, fileRead=0;
-  let confirmedIssue=null, duplicateRequest=0;
+  let previewIssue, confirmedIssue=null, duplicateRequest=0, branchRepository;
   form.hidden=false;
 
   function findIssues(errors,warnings=[]) {
@@ -116,16 +119,17 @@ export function initSubmissionWizard(form) {
     steps[next].querySelector('h2').focus();
   }
   function changed(key,label) {
-    touched.add(key);
-    imported.delete(key);
+    provenance.set(key,{kind:'manual'});
     label?.querySelector('small')?.remove();
     label?.querySelector('[aria-describedby]')?.removeAttribute('aria-describedby');
     form.elements.confirm.checked=false;
+    previewIssue=undefined;
     duplicateRequest++;
   }
   const badge=(label,key)=>{
-    if(imported.has(key)) {
-      const origin=element('small','Imported from '+imported.get(key));
+    const source=provenance.get(key)?.source;
+    if(source) {
+      const origin=element('small','Imported from '+source);
       origin.id='wizard-origin-'+key;
       label.querySelector('[data-field]').setAttribute('aria-describedby',origin.id);
       label.append(origin);
@@ -156,7 +160,8 @@ export function initSubmissionWizard(form) {
     const summary=element('summary',label+' ('+items.length+')');
     summary.dataset.field=key;
     group.append(summary);
-    if(imported.has(key)) group.append(element('small','Imported from '+imported.get(key)));
+    const source=provenance.get(key)?.source;
+    if(source) group.append(element('small','Imported from '+source));
     const replace=(list,focusIndex,action)=>{
       (isRoot?draft:draft.details)[key]=list;
       changed(key,group);
@@ -227,9 +232,73 @@ export function initSubmissionWizard(form) {
     }
     return [];
   }
+  const fieldKeys=document=>[...Object.keys(document).filter(key=>!['details','github_url'].includes(key)),...Object.keys(document.details)];
+  const getField=(document,key)=>Object.hasOwn(document,key)?document[key]:document.details[key];
+  const clearField=(document,key)=>{delete document[key]; delete document.details[key];};
+  const repositoryKey=value=>{
+    const {root,path}=implementationRepository(value);
+    return root.toLowerCase()+path;
+  };
+  function applyRepository(document,origins) {
+    const next=document.github_url, previous=draft.github_url;
+    const different=previous&&repositoryKey(previous)!==repositoryKey(next);
+    if(different) {
+      const retained=fieldKeys(document).filter(key=>{
+        const kind=origins.get(key)?.kind;
+        return kind==='manual'||(kind==='imported'&&derivedIdentity.includes(key));
+      });
+      if(retained.length&&!window.confirm('Change repository? Untouched imported fields will be cleared. Keep the custom identity and manually edited fields for the new repository? Review them before submitting.')) return false;
+      for(const [key,{kind}] of origins) {
+        if(kind!=='imported'||derivedIdentity.includes(key)) continue;
+        if(key==='installations') for(const item of document.details.installations??[]) rawConfigs.delete(item);
+        clearField(document,key);
+        origins.delete(key);
+      }
+      for(const key of retained) origins.set(key,{kind:'manual'});
+      cancelAnalysis();
+      if(branchRepository!==repositoryKey(next)) branch.value='';
+      $('#import-json').value='';
+      $('#import-file').value='';
+      ++fileRead;
+      changedNotice.textContent=retained.length?'Repository changed. Untouched imports from the previous repository were cleared. Review the custom identity and edited fields you kept.':
+        'Repository changed. Derived identity was refreshed and untouched imports from the previous repository were cleared.';
+    }
+    const {owner}=implementationRepository(next);
+    for(const [key,value] of [['id',repositoryId(next)],['author',owner]]) {
+      if(!document[key]||origins.get(key)?.kind==='derived') {
+        document[key]=value;
+        origins.set(key,{kind:'derived'});
+      }
+    }
+    draft=document;
+    if(origins!==provenance) {
+      provenance.clear();
+      for(const [key,origin] of origins) provenance.set(key,origin);
+    }
+    repo.value=next;
+    return true;
+  }
+  function commitRepositoryInput() {
+    const next=canonicalRepository(repo.value);
+    if(applyRepository({...draft,details:{...draft.details},github_url:next},new Map(provenance))) return true;
+    repo.value=draft.github_url;
+    changedNotice.textContent='Repository change cancelled. The draft still uses the original repository.';
+    return false;
+  }
+  function commitJson(document) {
+    const origins=new Map(provenance);
+    for(const key of new Set([...fieldKeys(draft),...fieldKeys(document)])) {
+      if(JSON.stringify(getField(draft,key))!==JSON.stringify(getField(document,key))) origins.set(key,{kind:'manual'});
+    }
+    if(!applyRepository(document,origins)) return false;
+    rawConfigs.clear();
+    json.value=JSON.stringify(draft,null,2);
+    return true;
+  }
+
   function validated() {
     if(mode==='json') {
-      try { return validateCandidate(parseCandidateJson(json.value)); }
+      try { return validateCandidate(parseCandidateJson(json.value),{allowRepositoryMetadata:true}); }
       catch(error){return {errors:[{field:'json',message:error.message}]};}
     }
     const errors=synchronizeStructured();
@@ -254,8 +323,9 @@ export function initSubmissionWizard(form) {
       if(result.errors.length) {
         if(!window.confirm('The JSON has validation errors. Discard those edits and return to the structured editor?')) {findIssues(result.errors);return;}
       } else {
-        draft=result.candidate; rawConfigs.clear(); repo.value=draft.github_url;
-        imported.clear(); for(const key of [...Object.keys(draft),...Object.keys(draft.details)]) touched.add(key);
+        if(!commitJson(result.candidate)) return;
+        setMode('structured');drawFields();findIssues([],result.warnings);
+        return;
       }
       setMode('structured'); drawFields();
     }
@@ -271,12 +341,18 @@ export function initSubmissionWizard(form) {
     analysisOutput.textContent='';
   }
   repo.addEventListener('input',()=>{
-    const hadFields=Boolean(draft.name);
-    cancelAnalysis();draft.github_url=repo.value;changed('github_url');
-    if(hadFields) analysisOutput.textContent='Repository changed. Existing listing details were kept. Review them for the new repository.';
+    cancelAnalysis();
+    changed('github_url');
+    changedNotice.textContent=draft.github_url?'Changing repository refreshes derived identity and clears untouched imports. You’ll confirm whether to keep any edited fields.':'';
   });
-  branch.addEventListener('input',cancelAnalysis);
+  branch.addEventListener('input',()=>{
+    try {branchRepository=repositoryKey(repo.value);}
+    catch {branchRepository=undefined;}
+    cancelAnalysis();
+  });
   $('#analyze-repo').addEventListener('click',async()=>{
+    try {if(!commitRepositoryInput()) return;}
+    catch(error) {findIssues([{field:'github_url',message:error.message}]);return;}
     cancelAnalysis();
     const pending=new AbortController();
     analysisAbort=pending;
@@ -288,7 +364,7 @@ export function initSubmissionWizard(form) {
       if(analysisAbort!==pending||pending.signal.aborted) return;
       analysis=result;
       applyAnalysis.hidden=false;
-      sourceLink.href=result.fields.github_url+'/tree/'+result.branch.split('/').map(encodeURIComponent).join('/');
+      sourceLink.href=result.sourceUrl;
       sourceLink.hidden=false;
       analysisOutput.textContent=[result.origin+' on '+result.branch+'.',...result.notes,...result.flags].join(' ');
     } catch(error) {
@@ -304,8 +380,10 @@ export function initSubmissionWizard(form) {
     const {details:importedDetails,...base}=analysis.fields;
     for(const [target,values] of [[draft,base],[draft.details,importedDetails]]) {
       for(const [key,value] of Object.entries(values)) {
-        if(key==='github_url'||touched.has(key)||value===''||(!imported.has(key)&&target[key]!==undefined&&target[key]!==''&&!(key==='category'&&target[key]==='Development'))) continue;
-        target[key]=value; imported.set(key,analysis.origin);
+        const kind=provenance.get(key)?.kind;
+        if(key==='github_url'||derivedIdentity.includes(key)||kind==='manual'||value===''||
+            (kind!=='imported'&&target[key]!==undefined&&target[key]!==''&&!(key==='category'&&target[key]==='Development'))) continue;
+        target[key]=value; provenance.set(key,{kind:'imported',source:analysis.origin});
       }
     }
     analysisOutput.textContent='Imported untouched fields. Confirm the source details before submitting.';
@@ -326,10 +404,15 @@ export function initSubmissionWizard(form) {
       const result=importCandidate($('#import-json').value);
       if(result.errors.length){findIssues(result.errors);return;}
       if((Object.keys(draft).length>2||Object.keys(draft.details).length||json.value)&&!window.confirm('Replace the current listing with the imported JSON?')) return;
-      cancelAnalysis(); rawConfigs.clear(); imported.clear(); touched.clear();
+      cancelAnalysis(); rawConfigs.clear(); provenance.clear();
+      ++fileRead;
+      changedNotice.textContent='';
+      branch.value='';branchRepository=undefined;
       draft=result.candidate;
       repo.value=draft.github_url; json.value=''; $('#import-json').value=''; $('#import-file').value='';
-      for(const key of [...Object.keys(draft),...Object.keys(draft.details)]) if(key!=='details') imported.set(key,'JSON');
+      for(const key of fieldKeys(draft)) {
+        provenance.set(key,result.derivedIdentity&&derivedIdentity.includes(key)?{kind:'derived'}:{kind:'imported',source:'JSON'});
+      }
       setMode('structured'); drawFields(); showStep(1);findIssues([],result.warnings);
     } catch(error) {findIssues([{field:'json',message:error.message}]);}
   });
@@ -368,37 +451,41 @@ export function initSubmissionWizard(form) {
     }
   }).observe(document.documentElement,{attributeFilter:['data-theme']});
   for(const toggle of form.querySelectorAll('[data-frame]')) toggle.addEventListener('click',()=>setDevice(toggle.dataset.frame));
-  function showReview(candidate) {
-    confirmedIssue=null;
-    const note=$('#handoff-note');
-    try {
-      confirmedIssue=composeSubmission(candidate,analysis?.fields.github_url===candidate.github_url?analysis:undefined);
-      note.textContent=confirmedIssue.url?'GitHub will open with a prefilled title and body. Review it and submit there.':
-        'This issue is too large to prefill. Copy the title and complete body, then open GitHub and paste them.';
-    } catch(error) {note.textContent=error.message;}
-    $('#copy-title').disabled=$('#copy-body').disabled=$('[data-download="markdown"]').disabled=
-      steps[3].querySelector('[type="submit"]').disabled=!confirmedIssue;
+  function prepareIssue(candidate) {
+    return composeSubmission(candidate,analysis?.fields.github_url===candidate.github_url?analysis:undefined);
+  }
+  function showReview(issue) {
+    confirmedIssue=issue;
+    $('#handoff-note').textContent=issue.url?'GitHub will open with a prefilled title and body. Review it and submit there.':
+      'This issue is too large to prefill. Copy the title and complete body, then open GitHub and paste them.';
     $('#manual-copy').hidden=true;
     form.elements.confirm.checked=false;
   }
   for(const next of form.querySelectorAll('[data-next]')) next.addEventListener('click',()=>{
     if(stage===0) {
       try {
-        draft.github_url=canonicalRepository(repo.value);
-        draft.id||=repositoryId(draft.github_url);
-        draft.author||=new URL(draft.github_url).pathname.split('/')[1];
+        if(!commitRepositoryInput()) return;
       } catch(error){findIssues([{field:'github_url',message:error.message}]);return;}
       drawFields(); showStep(1); findIssues([]); return;
     }
-    const result=validated();
+    let result=validated();
     if(result.errors.length){findIssues(result.errors);return;}
+    if(stage===1&&mode==='json') {
+      const {warnings}=result;
+      if(!commitJson(result.candidate)) return;
+      result=validated();
+      result.warnings=[...new Set([...warnings,...(result.warnings??[])])];
+      if(result.errors.length){findIssues(result.errors,result.warnings);return;}
+    }
     if(stage===1) {
+      try {previewIssue=prepareIssue(result.candidate);}
+      catch(error) {findIssues([{field:'json',message:error.message}],result.warnings);return;}
       showPreview(result.candidate);
       $('#duplicate-status').textContent='Optional check sends the repository, implementation key and endpoint URLs to FreeMCP.';
       showStep(2);
       sizePreview();
     } else {
-      showReview(result.candidate);
+      showReview(previewIssue);
       showStep(3);
     }
     findIssues([],result.warnings);
@@ -410,7 +497,7 @@ export function initSubmissionWizard(form) {
         findIssues(result.errors);
         return;
       }
-      draft=result.candidate;rawConfigs.clear();repo.value=draft.github_url;
+      if(!commitJson(result.candidate)) return;
       setMode('structured');drawFields();
     }
     showStep(stage-1);findIssues([]);

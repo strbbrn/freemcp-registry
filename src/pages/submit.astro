@@ -18,6 +18,7 @@ import '../styles/submission-wizard.css';
         <div class="wizard-disclosure">
           <label>Git branch <span>Optional. Defaults to the repository’s default branch.</span><input name="branch" maxlength="200" /></label>
           <div class="wizard-actions"><button type="button" id="analyze-repo">Analyze GitHub repository</button><button type="button" id="apply-analysis" hidden>Fill untouched fields</button></div>
+          <p id="repository-change" role="status"></p>
           <p id="analyze-status" role="status" aria-live="polite"></p>
           <a id="analysis-source" target="_blank" rel="noopener noreferrer" hidden>View source on GitHub</a>
         </div>

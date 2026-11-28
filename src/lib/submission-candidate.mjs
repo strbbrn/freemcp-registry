@@ -3,7 +3,7 @@ import { structuredConfig } from '../../lib/mcp-config.js';
 import { transports, transportAlias, installationSpecs, resolveTransport } from '../../lib/admin/transport.js';
 import { assertPublicationReady } from '../../lib/admin/publication.js';
 import { manifestFields, validateManifest } from './manifest.mjs';
-import { parseRepository, securityHints } from './submission.mjs';
+import { implementationRepository, parseRepository, securityHints } from './submission.mjs';
 
 export const issueBodyLimit = 65000;
 const maxJson = 96 * 1024;
@@ -26,13 +26,12 @@ const slug = (value,label,required=true) => {
   if (name && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) fail('Use lowercase letters, numbers and single hyphens.');
   return name;
 };
-export function canonicalRepository(value) {
-  const input=fieldText(value,'GitHub repository URL',300);
-  const {url:parsed,owner,repo}=parseRepository(input);
-  if (parsed.port||parsed.search||parsed.hash) fail('Use the public GitHub repository URL without a query, fragment or port.');
-  return 'https://github.com/'+owner+'/'+repo.replace(/\.git$/i,'');
+export const canonicalRepository = value => implementationRepository(fieldText(value,'GitHub repository URL',2048)).url;
+export function repositoryId(value) {
+  const {owner,repo,path}=implementationRepository(value);
+  const parts=path?path.split('/').slice(3):[];
+  return [owner,repo,...parts].join('-').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,200).replace(/-$/,'');
 }
-export const repositoryId = repo => canonicalRepository(repo).slice('https://github.com/'.length).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,199).replace(/-$/,'');
 const mode = value => transportAlias(value) ?? fail('Choose stdio, Streamable HTTP or legacy SSE.');
 export function submissionUrl(value,label,required=true) {
   const target=url(value,label,required);
@@ -120,14 +119,15 @@ export function parseCandidateJson(raw) {
   return value;
 }
 
-export function validateCandidate(value) {
+export function validateCandidate(value,{allowRepositoryMetadata=false}={}) {
   const errors=[], warnings=[], candidate={details:{}};
   const collect=(field,resolve,apply)=>{
     try { apply(resolve()); } catch (error) { errors.push({field,message:error.message}); }
   };
   collect('json',()=>{
-    shape(value,root);
+    shape(value,allowRepositoryMetadata?[...root,'stars']:root);
     checkSecrets(value);
+    if (Object.hasOwn(value,'stars')) warnings.push('Ignored imported GitHub stars. Analyze the repository to retrieve current GitHub metadata.');
     if (utf8(JSON.stringify(value))>maxJson) fail('Submission JSON must be under 96 KiB.');
     if (value.details!==undefined) shape(value.details,detail);
   },()=>{});
@@ -194,8 +194,8 @@ export function validateCandidate(value) {
 
 export function importCandidate(raw) {
   const input=parseCandidateJson(raw);
-  if (!object(input) || !Object.hasOwn(input,'schemaVersion')) return validateCandidate(input);
-  return validateCandidate(adaptManifest(input));
+  if (!object(input) || !Object.hasOwn(input,'schemaVersion')) return validateCandidate(input,{allowRepositoryMetadata:true});
+  return {...validateCandidate(adaptManifest(input)),derivedIdentity:true};
 }
 
 export function adaptManifest(input,expectedRepository) {

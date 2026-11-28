@@ -1,5 +1,5 @@
 import { hasStructuredSubmission, readStructuredSubmission } from './structured-submission.mjs';
-import {parseRepository,secretPattern,securityHints,validateDocumentationUrl} from './submission.mjs';
+import {implementationRepository,parseRepository,secretPattern,securityHints,validateDocumentationUrl} from './submission.mjs';
 
 const sectionNames=['Repository','Name','Category','Description','Transport','Documentation','Installation evidence / instructions','Permissions / security considerations'];
 const enrichmentSections=['Documented tools','Setup prerequisites'];
@@ -23,7 +23,16 @@ export function reviewSubmission(body,existing=[]){
  if(structured){
   if(structured.error)return {recognized:true,passed:false,findings:[structured.error],warnings:[]};
   const repository=structured.candidate.github_url;
-  const matches=existing.some(item=>(item.githubUrl||item.repository||'').replace(/\/$/,'').toLowerCase()===repository.toLowerCase());
+  const key=value=>{
+   const {root,path}=implementationRepository(value);
+   return root.toLowerCase()+path;
+  };
+  const matches=existing.some(item=>{
+   try {
+    return key(item.githubUrl||item.repository)===key(repository)&&
+     (item.details?.implementationKey??'')===(structured.candidate.details.implementationKey??'');
+   } catch { return false; }
+  });
   return {recognized:true,passed:!matches,findings:matches?['Possible duplicate repository in checked registry snapshot']:[],
    warnings:[...structured.warnings,'D1 duplicate check, ownership, licensing and MCP compatibility require maintainer verification'],repository};
  }

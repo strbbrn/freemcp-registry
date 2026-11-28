@@ -1,5 +1,5 @@
-import { adaptManifest, canonicalRepository, repositoryId, validateCandidate, parseCandidateJson } from './submission-candidate.mjs';
-import { parseRepository, readmeHeadings, securityHints, secretPattern } from './submission.mjs';
+import { adaptManifest, repositoryId, validateCandidate, parseCandidateJson } from './submission-candidate.mjs';
+import { implementationRepository, readmeHeadings, securityHints, secretPattern } from './submission.mjs';
 
 function validBranch(value) {
   return /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(value)&&!value.includes('..')&&!value.includes('//')&&
@@ -32,8 +32,8 @@ async function githubDocument(path,max,signal,raw=false,fetcher=fetch) {
 }
 
 export async function analyzeRepository(repository,requestedBranch,{signal,fetcher=fetch}={}) {
-  const github_url=canonicalRepository(repository);
-  const {owner,repo}=parseRepository(github_url);
+  const {owner,repo,root,url:github_url,path:implementation}=implementationRepository(repository);
+  const starsFor=metadata=>Number.isSafeInteger(metadata.stargazers_count)&&metadata.stargazers_count>=0?metadata.stargazers_count:undefined;
   if (requestedBranch&&!validBranch(requestedBranch)) throw new Error('Enter a valid Git branch name.');
   const path='/repos/'+encodeURIComponent(owner)+'/'+encodeURIComponent(repo);
   const raw=await githubDocument(path,64000,signal,false,fetcher);
@@ -52,7 +52,15 @@ export async function analyzeRepository(repository,requestedBranch,{signal,fetch
   if (Date.now()-Date.parse(metadata.pushed_at)>365*86400000) flags.push('No repository push detected in over one year.');
   if (metadata.open_issues_count>100) flags.push('High open issue count. Review maintenance context.');
   const safe=(value,max)=>typeof value==='string'&&value.trim().length<=max&&!secretPattern.test(value)?value.trim():'';
-  let fields={id:repositoryId(github_url),name:safe(metadata.name,120),description:safe(metadata.description,1200),author:owner,github_url,
+  const repositoryStatus=metadata.disabled?'Disabled':metadata.archived?'Archived':'Active';
+  const derived={id:repositoryId(github_url),author:owner,github_url};
+  if (implementation) {
+    // Root files may describe another MCP server in this repository.
+    notes.push('GitHub metadata is for the repository. Add documentation and configuration for this implementation.');
+    return {fields:{...derived,details:{documentationUrl:github_url}},sourceUrl:github_url,
+      origin:'GitHub metadata',branch,flags,notes,stars:starsFor(metadata),repositoryStatus};
+  }
+  let fields={...derived,name:safe(metadata.name,120),description:safe(metadata.description,1200),
     details:{documentationUrl:github_url+'#readme'}};
   let origin='GitHub metadata';
   const [manifest,readme]=await Promise.allSettled([
@@ -62,7 +70,7 @@ export async function analyzeRepository(repository,requestedBranch,{signal,fetch
   if (signal?.aborted) throw signal.reason;
   if (manifest.status==='fulfilled'&&manifest.value) {
     try {
-      const validation=validateCandidate(adaptManifest(parseCandidateJson(manifest.value),github_url));
+      const validation=validateCandidate(adaptManifest(parseCandidateJson(manifest.value),root));
       if (validation.errors.length) throw new Error('Invalid manifest.');
       fields=validation.candidate;
       origin='freemcp.json v1';
@@ -79,7 +87,6 @@ export async function analyzeRepository(repository,requestedBranch,{signal,fetch
     if (!fields.description) fields.description=readme.value.split(/\r?\n\r?\n/)
       .map(value=>safe(value,500)).find(value=>value.length>=40&&!/[#<>`\[\]]|https?:/.test(value))??'';
   } else if (readme.status==='rejected') notes.push('README hints are unavailable.');
-  return {fields,origin,branch,flags:[...new Set(flags)],notes,
-    stars:Number.isSafeInteger(metadata.stargazers_count)&&metadata.stargazers_count>=0?metadata.stargazers_count:undefined,
-    repositoryStatus:metadata.disabled?'Disabled':metadata.archived?'Archived':'Active'};
+  return {fields,origin,branch,flags:[...new Set(flags)],notes,stars:starsFor(metadata),repositoryStatus,
+    sourceUrl:root+'/tree/'+branch.split('/').map(encodeURIComponent).join('/')};
 }
