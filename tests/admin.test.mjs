@@ -78,6 +78,10 @@ test('every admin page and API and alternate hostname is protected', async t=>{
   assert.equal((await run(featureEnv,'/admin/login/',{},featureOrigin)).status,200);
   assert.equal((await run(featureEnv,'/admin/login/',{},preview)).status,404);
   assert.equal((await run(env,'/admin/login/',{},featureOrigin)).status,404);
+  const fixEnv={...env,CF_PAGES_BRANCH:'fix/admin-candidate-validation-and-url-overflow'};
+  const fixOrigin='https://fix-admin-candidate-validati.freemcp.pages.dev';
+  assert.equal((await run(fixEnv,'/admin/login/',{},fixOrigin)).status,200);
+  assert.equal((await run(fixEnv,'/admin/login/',{},featureOrigin)).status,404);
   assert.equal((await run({...env,ADMIN_ENV:'production',CF_PAGES_BRANCH:'main'},'/admin/login/',{},prod)).status,200);
   assert.equal((await run(env,'/admin/oauth/start/',{method:'GET'})).status,405);
 });
@@ -1055,4 +1059,86 @@ test('issue discovery includes issue #48 format, legacy, unrelated and redacted 
     fingerprint:evidence.fingerprint,version:await version(null),reason});
   assert.equal(saved.status,'save-candidate');
   assert.equal(await serverRow(config.db,draft.id),null);
+});
+
+test('first UltraTransfer candidate retains normalized documentation and evidence through sync, save, and publication',async t=>{
+  const {config,env,sqlite}=fixture(t);
+  const {candidateEditorState,savedCandidateRevision}=await import('../lib/admin/submissions.js');
+  const number=48;
+  const repository='https://github.com/mmxb8/UltraTransfer';
+  const primary=repository+'/blob/main/AGENT_INSTALL.md';
+  const secondary=repository+'/blob/main/docs/DIRECTORY_LISTING.md';
+  const issue={number,title:'MCP server submission: UltraTransfer (MIT, local stdio)',state:'open',body:[
+    '## Server details','- Name: UltraTransfer','- Repository: '+repository,'- Category: Development / Utilities',
+    '- Transport: local stdio','- Description: Verified file exchange.',
+    'Installation guide: '+primary+' '+secondary,
+    '- Documented tools: lookup | Search synthetic files', '- Setup prerequisites: Python 3.11.',
+    '- Security considerations: Use a dedicated test directory.',
+  ].join('\n')};
+  t.mock.method(globalThis,'fetch',async path=>{
+    const {pathname}=new URL(path);
+    if (pathname.endsWith('/issues/48')) return Response.json(issue);
+    if (pathname.endsWith('/commits/main')) return Response.json({sha:'c'.repeat(40)});
+    return Response.json({id:540,full_name:'mmxb8/UltraTransfer',default_branch:'main'});
+  });
+  const evidence=await submission(number,{config});
+  const {candidate:normalized}=await candidateEditorState(config,evidence,null);
+  assert.equal(normalized.details.documentationUrl,primary);
+  const {editableCandidate}=await import('../lib/admin/submissions.js');
+  const structuredEvidence={...evidence,fields:{...evidence.fields,
+    'Installation evidence / instructions':'`python -m ultra_agent.mcp_server`'}};
+  const {candidate:withInstallation}=await candidateEditorState(config,structuredEvidence,null);
+  assert.equal(withInstallation.details.installations.length,1);
+  const unchanged=editableCandidate(structuredEvidence,number,{useAdvanced:'yes',candidateJson:JSON.stringify(withInstallation)},null,null);
+  const unchangedDetails=JSON.parse(unchanged.details_json);
+  assert.equal(unchangedDetails.documentationUrl,primary);
+  assert.deepEqual(unchangedDetails.installations[0].config,withInstallation.details.installations[0].config);
+  assert.deepEqual(unchangedDetails.tools,withInstallation.details.tools);
+  assert.deepEqual(unchangedDetails.prerequisites,withInstallation.details.prerequisites);
+  assert.deepEqual(unchangedDetails.security,withInstallation.details.security);
+
+  const initial={...normalized,details:{...normalized.details,installations:withInstallation.details.installations,
+    pricing:'Free for the synthetic workflow',serviceDependencies:['Local runtime'],extraMetadata:{fixture:true}}};
+  const cookie=sessionCookie(await seedSession(sqlite,config));
+  const {csrf}=await (await run(env,'/api/admin/session/',{headers:{Cookie:cookie}})).json();
+  const post=async (action,payload={},row=null)=>run(env,'/api/admin/submissions/48/',{method:'POST',
+    headers:{Cookie:cookie,Origin:preview,'Content-Type':'application/json'},body:JSON.stringify({
+      csrf,fingerprint:evidence.fingerprint,version:await version(row),reason,action,...payload})});
+  const advanced=value=>({useAdvanced:'yes',candidateJson:JSON.stringify(value)});
+  assert.equal((await post('validate-candidate',advanced(initial))).status,200);
+  const sync=await post('sync-json',advanced(initial));
+  assert.equal(sync.status,200);
+  const intoStructured=await sync.json();
+  assert.match(intoStructured.structured,/value="https:\/\/github\.com\/mmxb8\/UltraTransfer\/blob\/main\/AGENT_INSTALL\.md"/);
+  const back=await post('sync-structured',{listingForm:'yes',baseJson:JSON.stringify(intoStructured.document),name:'UltraTransfer fixture',transport:''});
+  assert.equal(back.status,200);
+  const {document}=await back.json();
+  for(const key of ['summary','documentationUrl','documentationUrls','transport','transports','tools','prerequisites','security','pricing','serviceDependencies','extraMetadata']) {
+    assert.deepEqual(document.details[key],initial.details[key],key);
+  }
+  assert.equal(document.name,'UltraTransfer fixture');
+  for(const documentationUrl of ['','http://example.org/unsafe','https://fixture:password@example.org/docs']) {
+    assert.equal((await post('validate-candidate',advanced({...document,details:{...document.details,documentationUrl}}))).status,400);
+  }
+  assert.equal((await post('save-candidate',advanced(document))).status,200);
+  const first=await reviewRow(config.db,number);
+  const reopened=await candidateEditorState(config,evidence,first);
+  assert.equal(reopened.candidate.details.documentationUrl,primary);
+  assert.deepEqual(reopened.candidate.details.documentationUrls,[secondary]);
+  const {id}=reopened.candidate;
+  assert.equal((await post('save-candidate',advanced({id,description:'Corrected synthetic description',removeDetails:['extraMetadata']}),first)).status,200);
+  const updated=await reviewRow(config.db,number);
+  const updatedCandidate=(await candidateEditorState(config,evidence,updated)).candidate;
+  assert.equal(updatedCandidate.description,'Corrected synthetic description');
+  assert.equal(updatedCandidate.details.documentationUrl,primary);
+  assert.deepEqual(updatedCandidate.details.tools,initial.details.tools);
+  assert.equal(Object.hasOwn(updatedCandidate.details,'extraMetadata'),false);
+  const revision=await savedCandidateRevision(updated);
+  assert.equal((await post('approved',{confirm:'yes',revision:'incorrect'},updated)).status,409);
+  assert.equal((await post('approved',{confirm:'yes',revision},updated)).status,200);
+  const approved=await reviewRow(config.db,number);
+  assert.equal((await post('publish',{confirm:'yes',revision},approved)).status,200);
+  const published=await registry(config.db).detail(id);
+  assert.equal(published.details.documentationUrl,primary);
+  assert.deepEqual(published.details.tools,initial.details.tools);
 });
