@@ -216,7 +216,14 @@ Use `details.security` in listing JSON and `permissions` in a root v1 manifest.
 
 ## Optional repository manifest (freemcp.json v1)
 
-Use the examples in this section to add a root `freemcp.json` file to a repository. The wizard can import it and lets you add the remaining listing fields.
+These root `freemcp.json` examples describe the same Project Notes MCP setups as the complete listings above. The wizard adapts each manifest into listing JSON. Use the complete listing example when you want to include documentation URLs, pricing, dependencies, and client details in one paste.
+
+| Root manifest v1 | Listing JSON |
+| --- | --- |
+| `repository` | `github_url` |
+| `permissions` | `details.security` |
+| `installation` | `details.installations` |
+| `installation.env` declares credential names and requirements | Client configuration uses placeholders such as `${AUTHORIZATION}` |
 
 Maintainers may place an optional `freemcp.json` in the **root** of a public GitHub repository. The submission form reads this file, validates its fields, and offers prefilled values for a **human-reviewed GitHub issue**. It does not execute installation commands or automatically publish entries.
 
@@ -227,25 +234,30 @@ The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/fre
 ```json
 {
   "schemaVersion": 1,
-  "name": "Example MCP Server",
-  "description": "Search example resources.",
-  "repository": "https://github.com/example/example-mcp",
-  "category": "Search",
+  "name": "Project Notes MCP",
+  "description": "Search project notes and retrieve references.",
+  "repository": "https://github.com/example/project-notes",
+  "category": "Productivity",
   "transport": "stdio",
   "installation": {
-    "command": "npx",
-    "args": ["-y", "@example/mcp-server"],
-    "env": {
-      "EXAMPLE_API_KEY": {
-        "required": true,
-        "secret": true,
-        "description": "Provide your own API key; never put its value in this manifest"
-      }
-    }
+    "command": "project-notes",
+    "args": [
+      "--folder",
+      "/path/to/notes"
+    ]
   },
-  "tools": [{"name": "search", "description": "Search example resources"}],
-  "prerequisites": ["Node.js 20+", "An example service account"],
-  "permissions": ["Read access to example resources"]
+  "tools": [
+    {
+      "name": "search_notes",
+      "description": "Find notes by phrase or tag."
+    }
+  ],
+  "prerequisites": [
+    "A local notes folder"
+  ],
+  "permissions": [
+    "Reads only the configured folder and makes no outbound requests."
+  ]
 }
 ```
 
@@ -254,15 +266,34 @@ The machine-readable contract is [schemas/freemcp-v1.schema.json](../schemas/fre
 ```json
 {
   "schemaVersion": 1,
-  "name": "Example Remote MCP",
-  "description": "Remote example MCP endpoint.",
-  "repository": "https://github.com/example/remote-mcp",
-  "category": "Development",
+  "name": "Project Notes MCP",
+  "description": "Search project notes and retrieve references.",
+  "repository": "https://github.com/example/project-notes",
+  "category": "Productivity",
   "transport": "http",
-  "installation": {"endpoint": "https://mcp.example.com/mcp"},
-  "tools": [{"name": "search", "description": "Search example resources"}],
-  "prerequisites": ["A client that supports Streamable HTTP"],
-  "permissions": ["Sends search queries to the example service over HTTPS", "Provides read-only access to example resources"]
+  "installation": {
+    "endpoint": "https://mcp.example.org/project-notes",
+    "env": {
+      "AUTHORIZATION": {
+        "required": true,
+        "secret": true,
+        "description": "Full Authorization header value for the hosted index."
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "search_notes",
+      "description": "Find notes by phrase or tag."
+    }
+  ],
+  "prerequisites": [
+    "An account for the hosted index"
+  ],
+  "permissions": [
+    "Sends search queries to the hosted index over HTTPS.",
+    "Requires authentication and provides read-only access to indexed notes."
+  ]
 }
 ```
 

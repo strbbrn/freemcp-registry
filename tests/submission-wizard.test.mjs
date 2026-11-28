@@ -14,6 +14,23 @@ test('all documented submission examples validate and survive GitHub handoff',()
   assert.deepEqual(documents.map(document=>document.schemaVersion??document.details.transports),[
     ['stdio'],['http'],['stdio','http'],1,1,
   ]);
+  const [local,remote,,localManifest,remoteManifest]=documents;
+  for (const [listing,manifest] of [[local,localManifest],[remote,remoteManifest]]) {
+    assert.equal(manifest.repository,listing.github_url);
+    assert.equal(manifest.name,listing.name);
+    assert.equal(manifest.description,listing.description);
+    assert.equal(manifest.category,listing.category);
+    assert.equal(manifest.transport,listing.details.transport);
+    assert.deepEqual(manifest.permissions,listing.details.security);
+    assert.deepEqual(manifest.tools,listing.details.tools);
+    assert.deepEqual(manifest.prerequisites,listing.details.prerequisites);
+  }
+  const localConfig=local.details.installations[0].config.mcpServers.notes;
+  assert.deepEqual(localManifest.installation,localConfig);
+  const remoteConfig=remote.details.installations[0].config.mcpServers.notes;
+  assert.equal(remoteManifest.installation.endpoint,remoteConfig.url);
+  assert.deepEqual(Object.keys(remoteManifest.installation.env).map(name=>'${'+name+'}'),
+    [remoteConfig.headers.Authorization]);
   for(const [,json] of examples) {
     const {candidate,errors,warnings}=importCandidate(json);
     assert.deepEqual(errors,[]);
