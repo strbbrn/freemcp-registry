@@ -48,5 +48,5 @@ I confirm I am authorized to submit this listing and have not included credentia
 - [ ] Validate compatibility claims before publication
 - [ ] Approve or reject submission
 
-> **Recommended:** Use the [FreeMCP submission form](https://freemcp.in/submit) to analyze your public repository and generate a complete submission. If submitting directly here, replace all example values below. Do not include secrets.
+> **Recommended:** Use the [FreeMCP submission wizard](https://freemcp.in/submit/) to import or enter listing details, preview them, and generate an issue. If submitting directly here, replace the examples and use placeholders for credentials. The issue will be public and publication requires maintainer review.
 

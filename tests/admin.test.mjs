@@ -1142,3 +1142,54 @@ test('first UltraTransfer candidate retains normalized documentation and evidenc
   assert.equal(published.details.documentationUrl,primary);
   assert.deepEqual(published.details.tools,initial.details.tools);
 });
+
+test('structured issues initialize the full canonical admin candidate and retain the exact candidate on save', async t=>{
+  const {config}=fixture(t);
+  const {composeSubmission}=await import('../src/lib/structured-submission.mjs');
+  const {candidateEditorState}=await import('../lib/admin/submissions.js');
+  const submitted=candidate('structured-candidate','https://github.com/example/submitted');
+  submitted.details.tools=Array.from({length:30},(_,i)=>({name:'tool_'+i,description:'Test inventory entry '+i}));
+  submitted.details.documentationUrls=['https://example.org/more'];
+  submitted.details.serviceDependencies=['Synthetic API'];
+  const issue=composeSubmission(submitted);
+  t.mock.method(globalThis,'fetch',async (path,opts)=>{
+    assert.equal(opts.method,'GET');
+    if(path.endsWith('/issues/72'))return Response.json({number:72,title:issue.title,body:issue.body,state:'open'});
+    if(path.endsWith('/issues/73'))return Response.json({number:73,title:issue.title,body:issue.body.replace('submission:v1','submission:v9'),state:'open'});
+    if(path.endsWith('/commits/main'))return Response.json({sha:'c'.repeat(40)});
+    return Response.json({full_name:'example/submitted',id:110,default_branch:'main'});
+  });
+  const evidence=await submission(72,{config});
+  const prepared=await candidateEditorState(config,evidence,null);
+  assert.deepEqual(prepared.candidate,evidence.structuredCandidate);
+  assert.equal(prepared.candidate.details.tools.length,30);
+  await reviewAction(config,'12345',72,{action:'save-candidate',listingForm:'yes',reason,version:await version(null),fingerprint:evidence.fingerprint});
+  const saved=await reviewRow(config.db,72);
+  const {candidate:stored}=await candidateEditorState(config,evidence,saved);
+  const {review,...details}=stored.details;
+  assert.deepEqual(details,prepared.candidate.details);
+  assert.deepEqual(review,{status:'pending-publication',issue:72,source:'approved-submission'});
+  await assert.rejects(()=>submission(73,{config}),{status:422});
+});
+
+test('public duplicate check sees published repositories and endpoints only and limits requests', async t=>{
+  const {config}=fixture(t);
+  const {onRequest}=await import('../functions/api/submission-duplicates.js');
+  const hidden=await editServer(config,'12345',null,{...candidate('secret-draft','https://github.com/example/hidden'),action:'create',reason});
+  const publicConfig=candidate('visible-server','https://github.com/example/visible');
+  publicConfig.details.transport='http';
+  publicConfig.details.installations=[{title:'Remote fixture',config:{url:'https://mcp.example.org/path',type:'http'}}];
+  const row=await editServer(config,'12345',null,{...publicConfig,action:'create',reason});
+  await editServer(config,'12345',row.id,{action:'publish',version:await version(row),confirm:'yes',reason});
+  const check=(data,ip='192.0.2.44',env={DB:config.db})=>onRequest({env,request:new Request('https://freemcp.in/api/submission-duplicates',{
+    method:'POST',headers:{'Content-Type':'application/json',Origin:'https://freemcp.in','CF-Connecting-IP':ip},
+    body:JSON.stringify({repository:'https://github.com/example/unknown',implementationKey:'',endpoints:[],...data}),
+  })});
+  assert.deepEqual(await (await check({repository:hidden.github_url})).json(),{match:false});
+  assert.deepEqual(await (await check({repository:row.github_url.toUpperCase().replace('HTTPS','https')})).json(),{match:true});
+  assert.deepEqual(await (await check({repository:row.github_url,implementationKey:'another-implementation'})).json(),{match:false});
+  assert.deepEqual(await (await check({endpoints:['https://mcp.example.org/path/']})).json(),{match:true});
+  assert.equal((await check({},'192.0.2.45',{})).status,503);
+  for(let i=0;i<6;i++) await check({});
+  assert.equal((await check({})).status,429);
+});

@@ -31,7 +31,8 @@ test('Submission page has navigation and accessible form controls',()=>{
   assert.match(submit,/<main\b/);
   assert.match(submit,/href="#main-content"/);
   assert.match(submit,/aria-label="Main navigation"/);
-  for(const field of ['repository','name','description','docs','installation','permissions']) assert.ok(submit.includes('name="'+field+'"'),'missing field '+field);
+  for(const field of ['repository','branch','confirm']) assert.ok(submit.includes('name="'+field+'"'),'missing field '+field);
+  assert.match(submit,/<iframe[^>]+sandbox=""/);
   assert.match(submit,/role="alert"/);
   assert.match(submit,/aria-live="polite"/);
 });

@@ -13,7 +13,7 @@ FreeMCP is built with **Astro + Cloudflare Pages Functions + Cloudflare D1**. Pu
 - **Live GitHub metadata:** details pages fetch GitHub stars and archived/disabled status on page load; successful responses are cached in the visitor's browser for 15 minutes. GitHub API failures show an unavailable state rather than a fabricated zero.
 - **Recently added servers** sourced from the live registry on the homepage.
 - **Responsive design** with light and dark themes.
-- **Repository-first submission:** analyze a public GitHub repository, optionally import its root `freemcp.json`, review the evidence, and submit a GitHub issue.
+- **Submission wizard:** analyze a public GitHub repository, import JSON, or fill in listing details manually. Preview the listing before opening a GitHub issue.
 - **Human moderation:** no automatic approval or production publication. Approved-registration workflows generate review artifacts, not D1 writes.
 
 ## Pages and API
@@ -23,7 +23,7 @@ FreeMCP is built with **Astro + Cloudflare Pages Functions + Cloudflare D1**. Pu
 | [`/`](https://freemcp.in) | Homepage and recently added listings |
 | [`/servers`](https://freemcp.in/servers) | Browse, search, filter, and paginate |
 | `/servers/{id}` | Details, installation examples, live GitHub metadata |
-| [`/submit`](https://freemcp.in/submit) | Repository analysis and human-reviewed submission |
+| [`/submit`](https://freemcp.in/submit) | Repository analysis, JSON editing, listing preview, and human-reviewed submission |
 | [`/api/servers`](https://freemcp.in/api/servers) | Published listings in JSON |
 | [`/api/servers?meta=categories`](https://freemcp.in/api/servers?meta=categories) | Available categories |
 
@@ -31,10 +31,10 @@ The `GET /api/servers` endpoint accepts `q`, `category`, `sort` (`name`, `catego
 
 ## Submit a server
 
-1. Visit [freemcp.in/submit](https://freemcp.in/submit).
-2. Enter the URL of a public GitHub repository; optionally specify a branch.
-3. Select **Analyze GitHub repository**, then review imported information and installation/security evidence.
-4. Open the prefilled GitHub issue for maintainer review.
+1. Visit [freemcp.in/submit](https://freemcp.in/submit). Enter a repository, import JSON, or use the GitHub analyzer.
+2. Edit the listing and check the local desktop or mobile preview. Keep all credentials out of the form and use placeholders.
+3. Review the GitHub handoff. Small issues open prefilled. For a larger issue, copy the title and complete body or download the Markdown, then paste it into GitHub.
+4. Review and submit the public issue on GitHub. Maintainers approve and publish listings separately.
 
 A `freemcp.json` manifest is **optional**. You can submit a server without it. Submitting an issue does not publish the listing. See [moderation policy](docs/SUBMISSION_MODERATION.md).
 
